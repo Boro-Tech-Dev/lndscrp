@@ -116,7 +116,14 @@ After images are published, [`.github/workflows/vps-deploy.yml`](../.github/work
 
 1. Generate an SSH keypair for deploy only (`ssh-keygen -t ed25519 -f landscrape-vps-deploy -N ""`).
 2. Append `landscrape-vps-deploy.pub` to `root@72.61.5.60:~/.ssh/authorized_keys`.
-3. Add the **private** key as repository secret **`VPS_SSH_PRIVATE_KEY`** (Settings → Secrets and variables → Actions).
+3. Add the **private** key (file `landscrape-vps-deploy`, **not** `.pub`) as secret **`VPS_SSH_PRIVATE_KEY`**:
+
+   ```bash
+   # From repo root — copies the full key including BEGIN/END lines
+   pbcopy < landscrape-vps-deploy
+   ```
+
+   GitHub → Settings → Secrets and variables → Actions → `VPS_SSH_PRIVATE_KEY` → paste. Must start with `-----BEGIN OPENSSH PRIVATE KEY-----` (or `BEGIN PRIVATE KEY`), not `ssh-ed25519`.
 
 Optional repository **variables** (Settings → Variables): `VPS_HOST` (default `72.61.5.60`), `VPS_USER` (default `root`), `VPS_REMOTE_DIR` (default `/opt/landscrape`).
 
@@ -259,6 +266,7 @@ docker images | grep landscrape
 |-------|--------|
 | `DNS_PROBE_FINISHED_NXDOMAIN` / URL like `e6f7f621c25c:3000` | Wrong URL — use https://deliver-impact.com. Next.js may log `Local: http://<container-id>:3000`; ignore it. Set `WEB_PUBLIC_URL` / `ADMIN_BASE_URL` in `.env` and `./scripts/deploy-vps.sh up-web`. |
 | `pull` / `manifest unknown` | Run **Docker publish** on `main`; set `LANDSCRAPE_IMAGE_OWNER` lowercase; make GHCR packages **Public** or `docker login ghcr.io` |
+| VPS deploy `error in libcrypto` / Permission denied | Re-paste **private** key via `pbcopy < landscrape-vps-deploy`; not the `.pub` file. Test: `ssh -i landscrape-vps-deploy root@72.61.5.60` |
 | VPS deploy workflow fails SSH | Set secret `VPS_SSH_PRIVATE_KEY`; verify deploy public key in `authorized_keys` |
 | Auto-deploy did not run | Check **Docker publish** succeeded on `main`; open **VPS deploy** workflow run |
 | OOM during build | Use GHCR pull path instead of `--build` on VPS; if building locally, confirm swap and `COMPOSE_PARALLEL_LIMIT=1` |

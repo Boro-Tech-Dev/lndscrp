@@ -30,29 +30,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure SSH
-        env:
-          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure deploy target
         run: |
-          if [[ -z "${VPS_SSH_PRIVATE_KEY}" ]]; then
-            echo "error: VPS_SSH_PRIVATE_KEY repository secret is required" >&2
-            exit 1
-          fi
           VPS_HOST="${VPS_HOST:-72.61.5.60}"
           VPS_USER="${VPS_USER:-root}"
           echo "VPS_HOST=$VPS_HOST" >> "$GITHUB_ENV"
           echo "VPS_USER=$VPS_USER" >> "$GITHUB_ENV"
           echo "VPS_REMOTE_DIR=${VPS_REMOTE_DIR:-/opt/landscrape}" >> "$GITHUB_ENV"
-          install -m 700 -d ~/.ssh
-          echo "$VPS_SSH_PRIVATE_KEY" > ~/.ssh/vps_deploy
-          chmod 600 ~/.ssh/vps_deploy
+          mkdir -p ~/.ssh
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Rsync repository to VPS
         run: |
-          RSYNC_RSH="ssh -i ~/.ssh/vps_deploy -o StrictHostKeyChecking=yes"
-          export RSYNC_RSH
-          rsync -avz --delete \
+          rsync -avz -e "ssh -o StrictHostKeyChecking=yes" --delete \
             --exclude node_modules \
             --exclude .git \
             --exclude .env \
@@ -62,7 +57,7 @@ jobs:
 
       - name: Pull images and restart stack
         run: |
-          ssh -i ~/.ssh/vps_deploy -o StrictHostKeyChecking=yes \
+          ssh -o StrictHostKeyChecking=yes \
             "${VPS_USER}@${VPS_HOST}" \
             "bash ${VPS_REMOTE_DIR}/infra/vps/remote-deploy.sh"
 

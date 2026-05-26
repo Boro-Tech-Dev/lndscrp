@@ -5,5 +5,7 @@ dist
 coverage
 tmp
 .DS_Store
+landscrape-vps-deploy
+landscrape-vps-deploy.pub
 __pycache__
 *.pyc
