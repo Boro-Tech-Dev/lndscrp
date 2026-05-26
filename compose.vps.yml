@@ -40,6 +40,9 @@ services:
 
   keycloak:
     ports: !reset []
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./infra/keycloak:/opt/keycloak/data/import:ro
 
   mcp-fda:
     ports: !reset []

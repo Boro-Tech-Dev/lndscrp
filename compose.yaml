@@ -649,6 +649,7 @@ volumes:
   redis_data:
   minio_data:
   ollama_data:
+  keycloak_data:
   xactions_postgres_data:
   xactions_redis_data:
 

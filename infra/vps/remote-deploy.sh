@@ -13,6 +13,12 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
+# Compose reads .env for container env_file, but not always for ${VAR} in compose files.
+set -a
+# shellcheck source=/dev/null
+source .env
+set +a
+
 echo "[remote-deploy] COMPOSE_FILE=$COMPOSE_FILE"
 echo "[remote-deploy] pulling images from registry…"
 docker compose pull

@@ -7,5 +7,6 @@ tmp
 .DS_Store
 landscrape-vps-deploy
 landscrape-vps-deploy.pub
+.landscrape-vps.env
 __pycache__
 *.pyc
