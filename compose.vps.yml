@@ -177,7 +177,3 @@ services:
     expose:
       - "3000"
 
-  admin:
-    ports: !reset []
-    expose:
-      - "3001"

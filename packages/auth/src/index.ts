@@ -13,3 +13,5 @@ export {
 } from "./keycloak";
 export { isPublicHostname, requestPublicOrigin } from "./requestPublicOrigin";
 export type { RequestPublicOriginOptions } from "./requestPublicOrigin";
+export { safeReturnUrl, webLoginUrl } from "./safeReturnUrl";
+export type { WebLoginUrlOptions } from "./safeReturnUrl";

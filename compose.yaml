@@ -571,25 +571,6 @@ services:
     networks:
       - landscrape
 
-  admin:
-    build:
-      context: .
-      dockerfile: infra/docker/admin.Dockerfile
-    image: landscrape-admin:prod
-    ports:
-      - "3001:3001"
-    env_file:
-      - .env
-    depends_on:
-      api:
-        condition: service_started
-      keycloak:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    networks:
-      - landscrape
-
   # --- Local dev: browse Postgres / Redis / container logs (not used by the app at runtime) ---
   pgweb:
     profiles:

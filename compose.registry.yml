@@ -63,7 +63,3 @@ services:
   web:
     image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-web:${LANDSCRAPE_IMAGE_TAG}
     build: !reset null
-
-  admin:
-    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-admin:${LANDSCRAPE_IMAGE_TAG}
-    build: !reset null

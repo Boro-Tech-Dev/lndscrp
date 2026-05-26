@@ -58,10 +58,8 @@ export async function TerminalShell({
   children
 }: TerminalShellProps) {
   const accent = brandColor ?? "#5a8a6e";
-  const adminBaseUrl = process.env.ADMIN_BASE_URL?.trim() ?? "";
   const claims = await getAuthClaims();
-  const adminConsoleUrl =
-    adminBaseUrl && claims && hasAdminRole(claims) ? adminBaseUrl.replace(/\/$/, "") : null;
+  const adminConsoleUrl = claims && hasAdminRole(claims) ? "/admin" : null;
 
   return (
     <main className="min-h-screen bg-canvas text-stone-800">
@@ -148,12 +146,12 @@ export async function TerminalShell({
               </span>
               {userEmail ? <AuthUserMenu email={userEmail} /> : null}
               {adminConsoleUrl ? (
-                <a
+                <Link
                   href={adminConsoleUrl}
                   className="rounded-soft border border-border bg-stone-50/80 px-2 py-0.5 text-[11px] text-stone-600 hover:border-accent-brown/30"
                 >
                   Admin
-                </a>
+                </Link>
               ) : null}
             </div>
           </div>

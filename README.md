@@ -37,7 +37,8 @@ npm run db:schema
 npm run dev:api
 npm run dev:worker
 npm run dev:web
-npm run dev:admin
+npm run dev -w @landscrape/web
+# Admin console: http://localhost:3000/admin
 ```
 
 ### Production stack

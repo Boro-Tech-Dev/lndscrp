@@ -78,7 +78,7 @@ LANDSCRAPE_CREDENTIALS_KEY=${CREDENTIALS_KEY}
 NEXT_PUBLIC_API_BASE_URL=https://deliver-impact.com
 WEB_PUBLIC_URL=https://deliver-impact.com
 API_INTERNAL_URL=http://api:4000
-ADMIN_BASE_URL=https://admin.deliver-impact.com
+ADMIN_BASE_URL=https://deliver-impact.com/admin
 
 AUTH_ENABLED=true
 KEYCLOAK_URL=http://keycloak:8080
@@ -87,7 +87,7 @@ KEYCLOAK_CLIENT_ID=landscrape-web
 KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
 KEYCLOAK_ISSUER=http://keycloak:8080/realms/landscrape
 AUTH_COOKIE_DOMAIN=.deliver-impact.com
-AUTH_CORS_ORIGINS=https://deliver-impact.com,https://www.deliver-impact.com,https://admin.deliver-impact.com
+AUTH_CORS_ORIGINS=https://deliver-impact.com,https://www.deliver-impact.com
 KEYCLOAK_ADMIN=admin
 KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
 

@@ -38,12 +38,12 @@ case "$cmd" in
     ssh "$HOST" "bash ${REMOTE_DIR}/infra/vps/remote-deploy.sh"
     ;;
   up-app)
-    ssh_compose pull web admin api agent mcp-fda mcp-pubmed mcp-clinicaltrials
-    ssh_compose up -d web admin api agent mcp-fda mcp-pubmed mcp-clinicaltrials
+    ssh_compose pull web api agent mcp-fda mcp-pubmed mcp-clinicaltrials
+    ssh_compose up -d web api agent mcp-fda mcp-pubmed mcp-clinicaltrials
     ;;
   up-web)
-    ssh_compose pull web admin
-    ssh_compose up -d web admin
+    ssh_compose pull web
+    ssh_compose up -d web
     ;;
   fresh)
     cat <<EOF
@@ -56,7 +56,7 @@ Fresh VPS sequence (run on server after sync + .env configured):
      docker compose pull
      docker compose up -d postgres redis minio ollama
      docker compose up -d ollama-init keycloak
-     docker compose up -d mcp-fda mcp-pubmed mcp-clinicaltrials agent api web admin
+     docker compose up -d mcp-fda mcp-pubmed mcp-clinicaltrials agent api web
      docker compose up -d worker-scheduler worker-ingest worker-embed worker-enrich worker-reconcile worker-inbound worker-export worker-portal
 
 See docs/deploy-vps.md for details.

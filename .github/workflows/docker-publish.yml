@@ -22,9 +22,6 @@ jobs:
           - image: landscrape-web
             dockerfile: infra/docker/web.Dockerfile
             context: .
-          - image: landscrape-admin
-            dockerfile: infra/docker/admin.Dockerfile
-            context: .
           - image: landscrape-api
             dockerfile: infra/docker/api.Dockerfile
             context: .

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getServerAccessToken } from "./auth/session";
+import { getServerAccessToken, getSession } from "./auth/session";
 import { authEnabled } from "./auth/constants";
 import { DEFAULT_TENANT } from "./tenantConstants";
 
@@ -35,6 +35,12 @@ async function request<T>(path: string): Promise<T> {
   const response = await authorizedFetch(path);
 
   if (response.status === 401) {
+    if (authEnabled()) {
+      const session = await getSession();
+      if (session) {
+        throw new Error(`Unauthorized API response for ${path}`);
+      }
+    }
     redirect("/login");
   }
   if (response.status === 403) {

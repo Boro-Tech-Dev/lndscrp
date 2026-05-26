@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/cookies.test.js dist/requestPublicOrigin.test.js dist/keycloak.test.js"
+    "test": "npm run build && node --test dist/cookies.test.js dist/requestPublicOrigin.test.js dist/keycloak.test.js dist/safeReturnUrl.test.js"
   },
   "dependencies": {
     "jose": "^5.9.6"

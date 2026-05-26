@@ -2,18 +2,18 @@
 
 Production host: **`root@72.61.5.60`** (Ubuntu 24.04, Traefik at `/docker/traefik/`).
 
-Public URL: **https://deliver-impact.com** (web via Traefik). Admin console: **https://admin.deliver-impact.com** (admin role only; shares login with web). API, Keycloak, and databases stay on the Docker network.
+Public URL: **https://deliver-impact.com** (web via Traefik). Sign in once on the main site; the admin console lives at **https://deliver-impact.com/admin** (Keycloak **admin** role only). Legacy **https://admin.deliver-impact.com** redirects to `/admin`. API, Keycloak, and databases stay on the Docker network.
 
 ### Access URLs (use these in the browser)
 
 | App | URL |
 |-----|-----|
-| Web | https://deliver-impact.com |
-| Admin | https://admin.deliver-impact.com |
+| Web (sign-in) | https://deliver-impact.com |
+| Admin | https://deliver-impact.com/admin |
 
 Do **not** open container hostnames from `docker logs` (e.g. `http://e6f7f621c25c:3000`) or `http://72.61.5.60:3000` — port 3000 is not published on the VPS; only Traefik serves HTTPS.
 
-Set `WEB_PUBLIC_URL` and `ADMIN_BASE_URL` in `.env` to match these hosts (see `.env.vps.example`). After changing them, redeploy web + admin: `./scripts/deploy-vps.sh up-web` (GHCR) or `docker compose up -d --build web admin` (local build on VPS).
+Set `WEB_PUBLIC_URL` and `ADMIN_BASE_URL` in `.env` (see `.env.vps.example`). After changing them, redeploy web: `./scripts/deploy-vps.sh up-web` (GHCR) or `docker compose up -d --build web` (local build on VPS).
 
 ## Prerequisites
 
@@ -83,7 +83,7 @@ If you want X/Twitter posts to appear in the dashboard feed (as `social_intellig
 - **Prerequisite**: Set `LANDSCRAPE_CREDENTIALS_KEY` in `.env` first. The API refuses to store social connector secrets unless this is set.
 - **Then**: Follow the setup in [`docs/x-social-ingest.md`](x-social-ingest.md), which uses [`scripts/configure-x-social-connector.sh`](../scripts/configure-x-social-connector.sh) to store `auth_token` and `ct0` encrypted into the `connectors.connection_config.encrypted_payload`.
 
-**Important:** On first boot, `KEYCLOAK_CLIENT_SECRET` must match `infra/keycloak/landscrape-realm.json` (`landscrape-web-secret-change-in-prod` unless you changed the realm). Set `AUTH_COOKIE_DOMAIN=.deliver-impact.com` and `ADMIN_BASE_URL=https://admin.deliver-impact.com` so admin shares the web login. Rotate demo users (`demo@landscrape.local` / `admin@landscrape.local`) before sharing the site.
+**Important:** On first boot, `KEYCLOAK_CLIENT_SECRET` must match `infra/keycloak/landscrape-realm.json` (`landscrape-web-secret-change-in-prod` unless you changed the realm). Set `AUTH_COOKIE_DOMAIN=.deliver-impact.com` and `ADMIN_BASE_URL=https://deliver-impact.com/admin`. Rotate demo users (`demo@landscrape.local` / `admin@landscrape.local`) before sharing the site.
 
 Update `DATABASE_URL` and `STORAGE_SECRET_KEY` to use the same passwords you set for `POSTGRES_PASSWORD` and `MINIO_ROOT_PASSWORD`.
 
@@ -208,7 +208,7 @@ Expect **20–45 minutes** on 8 GB RAM. Rebuild a single image when possible (e.
 | `landscrape-mcp-sidecar` | `mcp-fda` | `mcp-pubmed`, `mcp-clinicaltrials` |
 | `landscrape-xactions` | `xactions-api` | `xactions-worker` (`social` profile) |
 | `landscrape-agent` | `agent` | `agent-enrich` (optional profile) |
-| `landscrape-api`, `landscrape-web`, `landscrape-admin` | same-named services | — |
+| `landscrape-api`, `landscrape-web` | same-named services | — |
 
 ## 6. Verify
 
@@ -221,43 +221,34 @@ docker stats --no-stream
 
 - Sign in at https://deliver-impact.com
 - Hard-refresh the page several times — you should stay signed in (document request **200**, not `307` to `/login`)
-- Repeat on https://www.deliver-impact.com and https://admin.deliver-impact.com
+- Repeat on https://www.deliver-impact.com and https://deliver-impact.com/admin
 - Auth uses a **single** `landscrape_session` cookie (session id in Redis). After upgrading from older builds, clear site data once to remove legacy `landscrape_access` / `landscrape_refresh` / `landscrape_email` cookies.
-- Admin users: open **Admin** in the top bar, or go to https://admin.deliver-impact.com (shared session when `AUTH_COOKIE_DOMAIN=.deliver-impact.com`)
+- Admin users: open **Admin** in the top bar, or go to https://deliver-impact.com/admin
+- Legacy host https://admin.deliver-impact.com should 301 to `/admin`
 - From outside: ports **5432, 4000, 8080** on the public IP should be **closed**
 
 ### Secret rotation (`rotate-vps-secrets.sh`)
 
 Running [`scripts/rotate-vps-secrets.sh`](../scripts/rotate-vps-secrets.sh) updates Postgres, MinIO, and Keycloak credentials on the VPS. [`infra/vps/apply-rotated-secrets.sh`](../infra/vps/apply-rotated-secrets.sh) **flushes all Redis sessions** (`landscrape:session:*`) after Keycloak client secret rotation because existing tokens and refresh tokens are invalid. All users must sign in again (also noted in the rotate script output). Encrypted connector secrets must be re-configured when `LANDSCRAPE_CREDENTIALS_KEY` changes.
 
-### Redeploy web + admin only (auth / URL fixes)
+### Redeploy web only (auth / URL fixes)
 
 ```bash
 ./scripts/deploy-vps.sh sync
 ./scripts/deploy-vps.sh up-web
 ```
 
-Waits for CI to publish new `landscrape-web` / `landscrape-admin` images when code changed.
+Waits for CI to publish a new `landscrape-web` image when code changed.
 
 ## Admin console
 
-Public at **https://admin.deliver-impact.com** for users with the Keycloak **admin** role. Requires:
+At **https://deliver-impact.com/admin** for users with the Keycloak **admin** role. Same sign-in as the main app (`/login`). Non-admin users see `/admin/forbidden`.
 
-1. DNS `admin.deliver-impact.com` → server IP
-2. `.env`: `ADMIN_BASE_URL=https://admin.deliver-impact.com` and `AUTH_COOKIE_DOMAIN=.deliver-impact.com`
-3. Redeploy `web` and `admin` after env changes (users must sign in again once for shared cookies)
+1. `.env`: `ADMIN_BASE_URL=https://deliver-impact.com/admin` and `AUTH_COOKIE_DOMAIN=.deliver-impact.com`
+2. Redeploy `web` after env changes
+3. Optional: keep DNS `admin.deliver-impact.com` → server IP for the Traefik redirect to `/admin`
 
 While signed in on the main site, admin users see an **Admin** link in the header.
-
-### SSH fallback (no DNS)
-
-No Traefik route needed locally. Use SSH port forward:
-
-```bash
-ssh -L 3001:127.0.0.1:3001 root@72.61.5.60
-```
-
-Open http://localhost:3001 (requires `127.0.0.1:3001:3001` published on the VPS — see troubleshooting).
 
 ## Local smoke test (before VPS)
 

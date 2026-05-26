@@ -2,7 +2,8 @@ import {
   fetchKeycloakTokenPassword,
   keycloakConfigFromEnv,
   parseLandscrapeClaims,
-  requestPublicOrigin
+  requestPublicOrigin,
+  safeReturnUrl
 } from "@landscrape/auth";
 import {
   clearLegacyAuthCookies,
@@ -11,14 +12,6 @@ import {
   setSessionCookie
 } from "@landscrape/session";
 import { NextResponse } from "next/server";
-
-function safeReturnUrl(value: string | null | undefined, request: Request): string {
-  const raw = value?.trim() || "/";
-  if (raw.startsWith("/") && !raw.startsWith("//")) {
-    return raw;
-  }
-  return "/";
-}
 
 async function readCredentials(request: Request): Promise<{
   email: string;
@@ -35,8 +28,7 @@ async function readCredentials(request: Request): Promise<{
       email: typeof form.get("email") === "string" ? String(form.get("email")).trim() : "",
       password: typeof form.get("password") === "string" ? String(form.get("password")) : "",
       returnUrl: safeReturnUrl(
-        typeof form.get("returnUrl") === "string" ? String(form.get("returnUrl")) : null,
-        request
+        typeof form.get("returnUrl") === "string" ? String(form.get("returnUrl")) : null
       )
     };
   }
@@ -50,7 +42,7 @@ async function readCredentials(request: Request): Promise<{
   return {
     email: typeof body.email === "string" ? body.email.trim() : "",
     password: typeof body.password === "string" ? body.password : "",
-    returnUrl: safeReturnUrl(body.returnUrl, request)
+    returnUrl: safeReturnUrl(body.returnUrl)
   };
 }
 

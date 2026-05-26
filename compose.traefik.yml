@@ -1,7 +1,7 @@
 # Traefik reverse-proxy labels (Hostinger /docker/traefik on VPS).
-# Requires Traefik on host network with docker provider; web + admin public.
+# Requires Traefik on host network with docker provider; web public.
 # Usage:
-#   COMPOSE_FILE=compose.yaml:compose.vps.yml:compose.traefik.yml docker compose up -d web admin
+#   COMPOSE_FILE=compose.yaml:compose.vps.yml:compose.traefik.yml docker compose up -d web
 
 services:
   web:
@@ -25,17 +25,12 @@ services:
       - traefik.http.middlewares.landscrape-hstgr-redirect.redirectregex.regex=^https://srv1109378\.hstgr\.cloud/(.*)
       - traefik.http.middlewares.landscrape-hstgr-redirect.redirectregex.replacement=https://deliver-impact.com/$${1}
       - traefik.http.middlewares.landscrape-hstgr-redirect.redirectregex.permanent=true
-
-  admin:
-    ports: !reset []
-    expose:
-      - "3001"
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.landscrape-admin.rule=Host(`admin.deliver-impact.com`)
-      - traefik.http.routers.landscrape-admin.entrypoints=websecure
-      - traefik.http.routers.landscrape-admin.tls=true
-      - traefik.http.routers.landscrape-admin.tls.certresolver=letsencrypt
-      - traefik.http.routers.landscrape-admin.service=landscrape-admin
-      - traefik.http.services.landscrape-admin.loadbalancer.server.port=3001
-      - traefik.http.services.landscrape-admin.loadbalancer.passhostheader=true
+      - traefik.http.routers.landscrape-admin-legacy.rule=Host(`admin.deliver-impact.com`)
+      - traefik.http.routers.landscrape-admin-legacy.entrypoints=websecure
+      - traefik.http.routers.landscrape-admin-legacy.tls=true
+      - traefik.http.routers.landscrape-admin-legacy.tls.certresolver=letsencrypt
+      - traefik.http.routers.landscrape-admin-legacy.middlewares=landscrape-admin-redirect
+      - traefik.http.routers.landscrape-admin-legacy.service=landscrape
+      - traefik.http.middlewares.landscrape-admin-redirect.redirectregex.regex=^https://admin\.deliver-impact\.com/?(.*)
+      - traefik.http.middlewares.landscrape-admin-redirect.redirectregex.replacement=https://deliver-impact.com/admin/$${1}
+      - traefik.http.middlewares.landscrape-admin-redirect.redirectregex.permanent=true

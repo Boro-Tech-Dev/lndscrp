@@ -1,13 +1,8 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { canAccessTenant, type LandscrapeAuthClaims } from "@landscrape/auth";
-import {
-  deleteSessionCookieFromStore,
-  loadSession,
-  SESSION_COOKIE,
-  type SessionData
-} from "@landscrape/session";
+import { canAccessTenant, hasAdminRole, type LandscrapeAuthClaims, webLoginUrl } from "@landscrape/auth";
+import { loadSession, SESSION_COOKIE, type SessionData } from "@landscrape/session";
 import { authEnabled } from "./constants";
 
 export type AuthSession = SessionData;
@@ -25,8 +20,15 @@ export const getSession = cache(getSessionUncached);
 export async function requireSession(): Promise<SessionData> {
   const session = await getSession();
   if (!session) {
-    deleteSessionCookieFromStore(await cookies());
-    redirect("/login");
+    redirect(webLoginUrl());
+  }
+  return session;
+}
+
+export async function requireAdminSession(): Promise<SessionData> {
+  const session = await requireSession();
+  if (!hasAdminRole(session.claims)) {
+    redirect("/admin/forbidden");
   }
   return session;
 }
