@@ -1,0 +1,69 @@
+# Production overlay: pull pre-built images from GHCR (no compile on the VPS).
+#
+#   export COMPOSE_FILE=compose.yaml:compose.vps.yml:compose.traefik.yml:compose.registry.yml
+#   docker compose pull && docker compose up -d
+#
+# Requires LANDSCRAPE_IMAGE_REGISTRY, LANDSCRAPE_IMAGE_OWNER, LANDSCRAPE_IMAGE_TAG in .env
+# (see .env.vps.example). Images are built by .github/workflows/docker-publish.yml.
+
+services:
+  mcp-fda:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-mcp-sidecar:${LANDSCRAPE_IMAGE_TAG}
+    build: !reset null
+
+  mcp-pubmed:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-mcp-sidecar:${LANDSCRAPE_IMAGE_TAG}
+
+  mcp-clinicaltrials:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-mcp-sidecar:${LANDSCRAPE_IMAGE_TAG}
+
+  agent:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-agent:${LANDSCRAPE_IMAGE_TAG}
+    build: !reset null
+
+  agent-enrich:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-agent:${LANDSCRAPE_IMAGE_TAG}
+    build: !reset null
+
+  api:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-api:${LANDSCRAPE_IMAGE_TAG}
+    build: !reset null
+
+  worker-scheduler:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-worker:${LANDSCRAPE_IMAGE_TAG}
+    build: !reset null
+
+  worker-ingest:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-worker:${LANDSCRAPE_IMAGE_TAG}
+
+  worker-social:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-worker:${LANDSCRAPE_IMAGE_TAG}
+
+  worker-portal:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-worker:${LANDSCRAPE_IMAGE_TAG}
+
+  worker-embed:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-worker:${LANDSCRAPE_IMAGE_TAG}
+
+  worker-export:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-worker:${LANDSCRAPE_IMAGE_TAG}
+
+  worker-enrich:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-worker:${LANDSCRAPE_IMAGE_TAG}
+
+  worker-inbound:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-worker:${LANDSCRAPE_IMAGE_TAG}
+
+  worker-reconcile:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-worker:${LANDSCRAPE_IMAGE_TAG}
+
+  worker-full:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-worker:${LANDSCRAPE_IMAGE_TAG}
+
+  web:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-web:${LANDSCRAPE_IMAGE_TAG}
+    build: !reset null
+
+  admin:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-admin:${LANDSCRAPE_IMAGE_TAG}
+    build: !reset null

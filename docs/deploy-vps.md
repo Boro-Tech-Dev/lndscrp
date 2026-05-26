@@ -13,7 +13,7 @@ Public URL: **https://deliver-impact.com** (web via Traefik). Admin console: **h
 
 Do **not** open container hostnames from `docker logs` (e.g. `http://e6f7f621c25c:3000`) or `http://72.61.5.60:3000` — port 3000 is not published on the VPS; only Traefik serves HTTPS.
 
-Set `WEB_PUBLIC_URL` and `ADMIN_BASE_URL` in `.env` to match these hosts (see `.env.vps.example`). After changing them, redeploy: `docker compose up -d --build web admin`.
+Set `WEB_PUBLIC_URL` and `ADMIN_BASE_URL` in `.env` to match these hosts (see `.env.vps.example`). After changing them, redeploy web + admin: `./scripts/deploy-vps.sh up-web` (GHCR) or `docker compose up -d --build web admin` (local build on VPS).
 
 ## Prerequisites
 
@@ -38,6 +38,8 @@ From your dev machine:
 ```bash
 ./scripts/rsync-to-vps.sh
 ```
+
+Default destination is **`root@72.61.5.60:/opt/landscrape/`** (no arguments). Do not use documentation placeholders like `user@other-host`.
 
 Or manually (do **not** sync `.env` — it overwrites production secrets and cookie domain):
 
@@ -85,53 +87,91 @@ If you want X/Twitter posts to appear in the dashboard feed (as `social_intellig
 
 Update `DATABASE_URL` and `STORAGE_SECRET_KEY` to use the same passwords you set for `POSTGRES_PASSWORD` and `MINIO_ROOT_PASSWORD`.
 
-## 4. Build and start
+Set GHCR pull settings (lowercase GitHub username/org):
 
-Limit parallel builds on 8 GB RAM (prefer **`1`** on first deploy or after CPU alerts; use `2` only when swap is healthy):
+```bash
+LANDSCRAPE_IMAGE_REGISTRY=ghcr.io
+LANDSCRAPE_IMAGE_OWNER=your-github-user
+LANDSCRAPE_IMAGE_TAG=prod
+```
+
+One-time on the VPS (read-only PAT with `read:packages`):
+
+```bash
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
+```
+
+## 4. Start (recommended: pull from GHCR)
+
+Images are built in GitHub Actions ([`.github/workflows/docker-publish.yml`](../.github/workflows/docker-publish.yml)) on push to `main`. The VPS **pulls** them — no monorepo compile on the server.
+
+```bash
+export COMPOSE_FILE=compose.yaml:compose.vps.yml:compose.traefik.yml:compose.registry.yml
+```
+
+From your Mac:
+
+```bash
+./scripts/deploy-vps.sh sync    # rsync compose + config (not .env)
+./scripts/deploy-vps.sh pull      # docker compose pull on VPS
+./scripts/deploy-vps.sh up        # docker compose up -d
+```
+
+Or `./scripts/deploy-vps.sh fresh` for the full staged command list.
+
+Typical routine deploy after CI finishes: **`sync` → `pull` → `up`** (minutes, not 30–60).
+
+Scoped updates:
+
+| Change | Command |
+|--------|---------|
+| Web + admin only | `./scripts/deploy-vps.sh up-web` |
+| App tier | `./scripts/deploy-vps.sh up-app` |
+
+### Fresh server (after `compose down -v`)
+
+1. Swap: `bash infra/vps/setup-swap.sh`
+2. Configure `.env` from `.env.vps.example`
+3. `docker login ghcr.io`
+4. Staged `pull` + `up` (see `deploy-vps.sh fresh` or below)
+
+```bash
+cd /opt/landscrape
+export COMPOSE_FILE=compose.yaml:compose.vps.yml:compose.traefik.yml:compose.registry.yml
+
+docker compose pull
+docker compose up -d postgres redis minio ollama
+docker compose up -d ollama-init keycloak
+docker compose up -d mcp-fda mcp-pubmed mcp-clinicaltrials agent api web admin
+docker compose up -d worker-scheduler worker-ingest worker-embed worker-enrich worker-reconcile worker-inbound worker-export worker-portal
+```
+
+First boot still downloads Ollama models (~2 GB) via `ollama-init`. Avoid `compose down -v` unless you intend to wipe databases and model cache.
+
+Optional **X/social** stack (Puppeteer): build `xactions-api` locally or add a CI job; then `docker compose --profile social up -d`.
+
+### Slow path: build on the VPS (emergency / no CI)
+
+Only when GHCR images are unavailable:
 
 ```bash
 export COMPOSE_PARALLEL_LIMIT=1
 export DOCKER_BUILDKIT=1
-
 COMPOSE_FILE=compose.yaml:compose.vps.yml:compose.traefik.yml \
   docker compose up -d --build
 ```
 
-First boot: **20–45 minutes** (deduplicated images + Ollama model ~2 GB). Swap use during build is normal.
+Expect **20–45 minutes** on 8 GB RAM. Rebuild a single image when possible (e.g. `docker compose build worker-scheduler` then `up -d` workers).
 
-### Staged start (lower peak CPU)
+### Shared images (one build per Dockerfile)
 
-Instead of building and starting everything at once:
-
-```bash
-cd /opt/landscrape
-export COMPOSE_PARALLEL_LIMIT=1 DOCKER_BUILDKIT=1
-export COMPOSE_FILE=compose.yaml:compose.vps.yml:compose.traefik.yml
-
-# 1) Data + models
-docker compose up -d postgres redis minio ollama
-docker compose up -d ollama-init keycloak
-
-# 2) App tier (build if needed)
-docker compose up -d --build mcp-fda mcp-pubmed mcp-clinicaltrials agent api web admin
-
-# 3) Workers last (heaviest steady-state CPU)
-docker compose up -d --build worker-scheduler worker-ingest worker-embed worker-enrich worker-reconcile worker-inbound worker-export worker-portal
-```
-
-Optional **X/social** stack (Puppeteer): `docker compose --profile social up -d` (see [compose.vps.yml](../compose.vps.yml)).
-
-Redeploy only what changed when possible (e.g. `docker compose up -d --build web admin`).
-
-### Shared images
-
-Compose builds **~8 unique images** (not one per worker):
-
-- `landscrape-worker:prod` — all worker roles
-- `landscrape-mcp-sidecar:prod` — three MCP sidecars
-- `landscrape-agent:prod` — user-facing agent (`agent-enrich` is optional; off on VPS by default)
-- `landscrape-xactions:prod` — xactions-api + xactions-worker
-- `landscrape-api:prod`, `landscrape-web:prod`, `landscrape-admin:prod`
+| Image | Built by service | Used by |
+|-------|------------------|---------|
+| `landscrape-worker` | `worker-scheduler` | all `worker-*` |
+| `landscrape-mcp-sidecar` | `mcp-fda` | `mcp-pubmed`, `mcp-clinicaltrials` |
+| `landscrape-xactions` | `xactions-api` | `xactions-worker` (`social` profile) |
+| `landscrape-agent` | `agent` | `agent-enrich` (optional profile) |
+| `landscrape-api`, `landscrape-web`, `landscrape-admin` | same-named services | — |
 
 ## 5. Verify
 
@@ -149,21 +189,14 @@ docker stats --no-stream
 - Admin users: open **Admin** in the top bar, or go to https://admin.deliver-impact.com (shared session when `AUTH_COOKIE_DOMAIN=.deliver-impact.com`)
 - From outside: ports **5432, 4000, 8080** on the public IP should be **closed**
 
-### Redeploy web + admin only (auth fixes)
-
-From your machine:
+### Redeploy web + admin only (auth / URL fixes)
 
 ```bash
-./scripts/rsync-to-vps.sh
+./scripts/deploy-vps.sh sync
+./scripts/deploy-vps.sh up-web
 ```
 
-On the VPS:
-
-```bash
-cd /opt/landscrape
-export COMPOSE_PARALLEL_LIMIT=1 DOCKER_BUILDKIT=1
-COMPOSE_FILE=compose.yaml:compose.vps.yml:compose.traefik.yml docker compose up -d --build web admin
-```
+Waits for CI to publish new `landscrape-web` / `landscrape-admin` images when code changed.
 
 ## Admin console
 
@@ -198,8 +231,9 @@ docker images | grep landscrape
 
 | Issue | Action |
 |-------|--------|
-| `DNS_PROBE_FINISHED_NXDOMAIN` / URL like `e6f7f621c25c:3000` | Wrong URL — use https://deliver-impact.com. Next.js may log `Local: http://<container-id>:3000`; ignore it. Set `WEB_PUBLIC_URL` / `ADMIN_BASE_URL` in `.env` and redeploy `web` + `admin`. |
-| OOM during build | Confirm swap (`free -h`); lower `COMPOSE_PARALLEL_LIMIT` to 1 |
+| `DNS_PROBE_FINISHED_NXDOMAIN` / URL like `e6f7f621c25c:3000` | Wrong URL — use https://deliver-impact.com. Next.js may log `Local: http://<container-id>:3000`; ignore it. Set `WEB_PUBLIC_URL` / `ADMIN_BASE_URL` in `.env` and `./scripts/deploy-vps.sh up-web`. |
+| `pull` / `manifest unknown` | Run GitHub Actions `docker-publish` on `main`; set `LANDSCRAPE_IMAGE_OWNER` lowercase; `docker login ghcr.io` |
+| OOM during build | Use GHCR pull path instead of `--build` on VPS; if building locally, confirm swap and `COMPOSE_PARALLEL_LIMIT=1` |
 | TLS / 404 on domain | Check DNS; Traefik logs: `docker logs traefik-traefik-1` |
 | Login fails | Keycloak client secret vs `.env`; realm redirect URIs |
 | `intelligence-tools` / `x-twitter` build error | Ensure Dockerfiles build `@landscrape/x-twitter` before `@landscrape/intelligence-tools` |
@@ -211,6 +245,7 @@ docker images | grep landscrape
 
 | File | Purpose |
 |------|---------|
-| `compose.yaml` | Base stack |
+| `compose.yaml` | Base stack; one `build:` per image (worker-scheduler, mcp-fda, …) |
 | `compose.vps.yml` | No public ports, CPU/RAM limits, scheduler/Ollama throttles, optional `social` profile |
-| `compose.traefik.yml` | HTTPS routing for `web` |
+| `compose.traefik.yml` | HTTPS routing for `web` + `admin` |
+| `compose.registry.yml` | Pull from GHCR (no `build` on VPS) |

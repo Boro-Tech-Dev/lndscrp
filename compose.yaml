@@ -124,6 +124,7 @@ services:
     networks:
       - landscrape
 
+  # Anchor build for landscrape-mcp-sidecar:prod (mcp-pubmed / mcp-clinicaltrials use image: only).
   mcp-fda:
     build:
       context: .
@@ -144,9 +145,6 @@ services:
       - landscrape
 
   mcp-pubmed:
-    build:
-      context: .
-      dockerfile: infra/docker/mcp-sidecars.Dockerfile
     image: landscrape-mcp-sidecar:prod
     environment:
       MCP_SIDECAR_KIND: pubmed
@@ -163,9 +161,6 @@ services:
       - landscrape
 
   mcp-clinicaltrials:
-    build:
-      context: .
-      dockerfile: infra/docker/mcp-sidecars.Dockerfile
     image: landscrape-mcp-sidecar:prod
     environment:
       MCP_SIDECAR_KIND: clinicaltrials
@@ -273,6 +268,7 @@ services:
     networks:
       - landscrape
 
+  # Anchor build for landscrape-worker:prod (sibling workers use image: only).
   worker-scheduler:
     build:
       context: .
@@ -293,9 +289,6 @@ services:
       - landscrape
 
   worker-ingest:
-    build:
-      context: .
-      dockerfile: infra/docker/worker.Dockerfile
     image: landscrape-worker:prod
     environment:
       LANDSCRAPE_WORKER_ROLE: ingest
@@ -384,9 +377,6 @@ services:
       - landscrape
 
   xactions-worker:
-    build:
-      context: ./infra/xactions
-      dockerfile: Dockerfile
     image: landscrape-xactions:prod
     shm_size: "1gb"
     environment:
@@ -413,9 +403,6 @@ services:
       - landscrape
 
   worker-social:
-    build:
-      context: .
-      dockerfile: infra/docker/worker.Dockerfile
     image: landscrape-worker:prod
     environment:
       LANDSCRAPE_WORKER_ROLE: social
@@ -441,9 +428,6 @@ services:
       - landscrape
 
   worker-portal:
-    build:
-      context: .
-      dockerfile: infra/docker/worker.Dockerfile
     image: landscrape-worker:prod
     shm_size: "1gb"
     environment:
@@ -465,9 +449,6 @@ services:
       - landscrape
 
   worker-embed:
-    build:
-      context: .
-      dockerfile: infra/docker/worker.Dockerfile
     image: landscrape-worker:prod
     environment:
       LANDSCRAPE_WORKER_ROLE: embed
@@ -486,9 +467,6 @@ services:
       - landscrape
 
   worker-export:
-    build:
-      context: .
-      dockerfile: infra/docker/worker.Dockerfile
     image: landscrape-worker:prod
     shm_size: "1gb"
     environment:
@@ -506,9 +484,6 @@ services:
       - landscrape
 
   worker-enrich:
-    build:
-      context: .
-      dockerfile: infra/docker/worker.Dockerfile
     image: landscrape-worker:prod
     environment:
       LANDSCRAPE_WORKER_ROLE: enrich
@@ -523,9 +498,6 @@ services:
       - landscrape
 
   worker-inbound:
-    build:
-      context: .
-      dockerfile: infra/docker/worker.Dockerfile
     image: landscrape-worker:prod
     environment:
       LANDSCRAPE_WORKER_ROLE: inbound
@@ -544,9 +516,6 @@ services:
       - landscrape
 
   worker-reconcile:
-    build:
-      context: .
-      dockerfile: infra/docker/worker.Dockerfile
     image: landscrape-worker:prod
     environment:
       LANDSCRAPE_WORKER_ROLE: reconcile
@@ -563,9 +532,6 @@ services:
   worker-full:
     profiles:
       - monolith
-    build:
-      context: .
-      dockerfile: infra/docker/worker.Dockerfile
     image: landscrape-worker:prod
     shm_size: "1gb"
     environment:
