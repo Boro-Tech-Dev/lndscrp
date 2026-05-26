@@ -58,6 +58,33 @@ describe("clearOrphanSessionCookie", () => {
     await closeSessionStore();
   });
 
+  it("keeps cookie when Redis row exists even if access token is expired", async () => {
+    process.env.REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
+
+    const exp = Math.floor(Date.now() / 1000) - 60;
+    const id = await createSession({
+      access_token: fakeAccessToken(exp),
+      refresh_token: "refresh-token-value",
+      expires_in: 3600,
+      refresh_expires_in: 7200,
+      token_type: "Bearer"
+    });
+
+    const deleted: Array<{ name: string; path: string; domain?: string }> = [];
+    const cookieStore = {
+      get: (name: string) => (name === SESSION_COOKIE ? { value: id } : undefined),
+      delete: (options: { name: string; path: string; domain?: string }) => {
+        deleted.push(options);
+      }
+    };
+
+    await clearOrphanSessionCookie(cookieStore);
+    assert.equal(deleted.length, 0);
+
+    await destroySession(id);
+    await closeSessionStore();
+  });
+
   it("deleteSessionCookieFromStore removes cookie with path and domain options", () => {
     const deleted: Array<{ name: string; path: string; domain?: string }> = [];
     deleteSessionCookieFromStore({

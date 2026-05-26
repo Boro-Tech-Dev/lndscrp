@@ -1,14 +1,10 @@
-import { redirect } from "next/navigation";
 import { hasAdminRole } from "@landscrape/auth";
 import { authEnabled } from "./auth/constants";
-import { getSession, getServerAccessToken } from "./auth/session";
+import { getServerAccessToken, requireSession } from "./auth/session";
 
 export async function adminApiHeaders(): Promise<{ headers: HeadersInit; unauthorized: boolean }> {
   if (authEnabled()) {
-    const session = await getSession();
-    if (!session) {
-      redirect("/login");
-    }
+    const session = await requireSession();
     if (!hasAdminRole(session.claims)) {
       return { headers: {}, unauthorized: true };
     }

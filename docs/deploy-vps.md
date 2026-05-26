@@ -280,7 +280,7 @@ docker images | grep landscrape
 | OOM during build | Use GHCR pull path instead of `--build` on VPS; if building locally, confirm swap and `COMPOSE_PARALLEL_LIMIT=1` |
 | TLS / 404 on domain | Check DNS; Traefik logs: `docker logs traefik-traefik-1` |
 | Login fails | Keycloak client secret vs `.env`; realm redirect URIs |
-| Logged out on refresh after Keycloak restart | Stale Redis sessions; run secret rotation (auto-flush) or `redis-cli --scan --pattern 'landscrape:session:*' \| xargs redis-cli DEL`; users re-login once |
+| Logged out on refresh after deploy / Keycloak restart | Orphan `landscrape_session` cookie with no Redis row (middleware now clears the cookie and redirects). After secret rotation or [`apply-rotated-secrets.sh`](../infra/vps/apply-rotated-secrets.sh), users re-login once. Do **not** flush `landscrape:session:*` on routine deploys unless rotating Keycloak secrets. |
 | `intelligence-tools` / `x-twitter` build error | Ensure Dockerfiles build `@landscrape/x-twitter` before `@landscrape/intelligence-tools` |
 | Playwright `page.goto` timeouts on competitor sites | Migration `016_render_waituntil_domcontentloaded.sql` runs on fresh DBs; existing DBs: same `UPDATE` as in that file |
 | High sustained CPU after deploy | See `.env.vps.example` throttles; `compose.vps.yml` disables `agent-enrich` and optional `--profile social`; `docker stats --no-stream` |

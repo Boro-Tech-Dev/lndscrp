@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
-import { redirect } from "next/navigation";
 import { hasAdminRole } from "@landscrape/auth";
 import { authEnabled } from "../../lib/auth/constants";
-import { getSession, getServerAccessToken } from "../../lib/auth/session";
+import { getServerAccessToken, requireSession } from "../../lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   if (authEnabled()) {
-    const session = await getSession();
-    if (!session) {
-      redirect("/login");
-    }
+    const session = await requireSession();
     if (!hasAdminRole(session.claims)) {
       return NextResponse.json({ error: "Admin role required" }, { status: 403 });
     }

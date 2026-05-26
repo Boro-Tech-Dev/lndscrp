@@ -3,6 +3,7 @@ import Redis from "ioredis";
 import {
   decodeJwtExp,
   fetchKeycloakTokenRefresh,
+  isDefinitiveRefreshFailure,
   isDefinitiveTokenFailure,
   isJwtExpired,
   keycloakConfigFromEnv,
@@ -117,8 +118,10 @@ async function refreshStoredSession(id: string, data: StoredSession): Promise<Se
     const ttl = ttlSeconds(tokens);
     await saveSession(id, updated, ttl);
     return updated;
-  } catch {
-    await destroySession(id);
+  } catch (err) {
+    if (isDefinitiveRefreshFailure(err)) {
+      await destroySession(id);
+    }
     return null;
   }
 }
@@ -136,7 +139,7 @@ async function verifyStoredAccessToken(accessToken: string): Promise<"valid" | "
   }
 }
 
-/** Read session from Redis without refreshing tokens (e.g. logout). */
+/** Read session from Redis without refreshing tokens (middleware peek, logout, orphan cleanup). */
 export async function readSession(id: string): Promise<SessionData | null> {
   const trimmed = id?.trim();
   if (!trimmed) return null;
@@ -151,6 +154,9 @@ export async function readSession(id: string): Promise<SessionData | null> {
     return null;
   }
 }
+
+/** Alias for {@link readSession} — cheap Redis existence check without JWT refresh. */
+export const peekSession = readSession;
 
 export async function loadSession(id: string): Promise<SessionData | null> {
   const trimmed = id?.trim();
@@ -190,7 +196,7 @@ export async function loadSession(id: string): Promise<SessionData | null> {
 export async function clearOrphanSessionCookie(cookieStore: RequestCookies): Promise<void> {
   const id = cookieStore.get(SESSION_COOKIE)?.value?.trim();
   if (!id) return;
-  const session = await loadSession(id);
+  const session = await readSession(id);
   if (!session) {
     deleteSessionCookieFromStore(cookieStore);
   }

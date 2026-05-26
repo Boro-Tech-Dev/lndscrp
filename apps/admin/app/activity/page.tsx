@@ -4,19 +4,14 @@ import { redirect } from "next/navigation";
 import { AdminLogoutButton } from "../components/AdminLogoutButton";
 import { ActivityDashboard } from "./ActivityDashboard";
 import { authEnabled } from "../lib/auth/constants";
-import { getSession } from "../lib/auth/session";
+import { requireSession } from "../lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function ActivityPage() {
-  const session = await getSession();
-  if (authEnabled()) {
-    if (!session) {
-      redirect("/login");
-    }
-    if (!hasAdminRole(session.claims)) {
-      redirect("/login?error=admin_required");
-    }
+  const session = authEnabled() ? await requireSession() : null;
+  if (authEnabled() && session && !hasAdminRole(session.claims)) {
+    redirect("/login?error=admin_required");
   }
 
   return (

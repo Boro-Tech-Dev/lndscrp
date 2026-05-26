@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { listTenants } from "./api";
 import { authEnabled } from "./auth/constants";
-import { getSession } from "./auth/session";
+import { requireSession } from "./auth/session";
 import { filterTenantsForSession, getSessionEmail, resolveTenantSlug } from "./auth/tenant";
 import { tenantFromParams, withTenant } from "./navigation";
 
@@ -24,10 +24,7 @@ export async function getShellContext(
   path: string
 ) {
   if (authEnabled()) {
-    const session = await getSession();
-    if (!session) {
-      redirect("/login");
-    }
+    await requireSession();
   }
 
   const tenantSlug = await tenantSlugFromSearchParams(sp, path);

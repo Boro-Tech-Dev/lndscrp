@@ -1,10 +1,20 @@
 import { requestPublicOrigin } from "@landscrape/auth";
-import { SESSION_COOKIE } from "@landscrape/session/cookie";
+import { clearSessionCookie, readSession, SESSION_COOKIE } from "@landscrape/session";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { authEnabled } from "./app/lib/auth/constants";
 
-export function middleware(request: NextRequest) {
+function loginRedirect(request: NextRequest, pathname: string): NextResponse {
+  const origin = requestPublicOrigin(request, {
+    preferredEnv: "ADMIN_BASE_URL",
+    devFallback: "http://localhost:3001"
+  });
+  const loginUrl = new URL("/login", origin);
+  loginUrl.searchParams.set("returnUrl", `${pathname}${request.nextUrl.search}`);
+  return NextResponse.redirect(loginUrl);
+}
+
+export async function middleware(request: NextRequest) {
   if (!authEnabled()) {
     return NextResponse.next();
   }
@@ -21,18 +31,20 @@ export function middleware(request: NextRequest) {
 
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value?.trim();
   if (!sessionId) {
-    const origin = requestPublicOrigin(request, {
-      preferredEnv: "ADMIN_BASE_URL",
-      devFallback: "http://localhost:3001"
-    });
-    const loginUrl = new URL("/login", origin);
-    loginUrl.searchParams.set("returnUrl", `${pathname}${request.nextUrl.search}`);
-    return NextResponse.redirect(loginUrl);
+    return loginRedirect(request, pathname);
+  }
+
+  const session = await readSession(sessionId);
+  if (!session) {
+    const response = loginRedirect(request, pathname);
+    clearSessionCookie(response.cookies);
+    return response;
   }
 
   return NextResponse.next();
 }
 
 export const config = {
+  runtime: "nodejs",
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"]
 };

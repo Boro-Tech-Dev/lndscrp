@@ -3,7 +3,7 @@ import { hasAdminRole } from "@landscrape/auth";
 import { redirect } from "next/navigation";
 import { AdminLogoutButton } from "../components/AdminLogoutButton";
 import { authEnabled } from "../lib/auth/constants";
-import { getSession, getServerAccessToken } from "../lib/auth/session";
+import { getServerAccessToken, requireSession } from "../lib/auth/session";
 import { ProductRosterEditor } from "./ProductRosterEditor";
 
 export const dynamic = "force-dynamic";
@@ -38,14 +38,9 @@ export default async function ProductsPage({
 }: {
   searchParams: Promise<{ tenant?: string }>;
 }) {
-  const session = await getSession();
-  if (authEnabled()) {
-    if (!session) {
-      redirect("/login");
-    }
-    if (!hasAdminRole(session.claims)) {
-      redirect("/login?error=admin_required");
-    }
+  const session = authEnabled() ? await requireSession() : null;
+  if (authEnabled() && session && !hasAdminRole(session.claims)) {
+    redirect("/login?error=admin_required");
   }
 
   const sp = await searchParams;

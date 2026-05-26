@@ -119,4 +119,27 @@ describe("loadSession JWT validation", () => {
     assert.equal(refresh.mock.callCount(), 0);
     await destroySession(id);
   });
+
+  it("keeps session in Redis on transient refresh failure", async () => {
+    __setSessionAuthDepsForTests({
+      verifyAccessToken: mock.fn(async () => {
+        throw new Error("bad sig");
+      }),
+      isDefinitiveTokenFailure: () => true,
+      fetchKeycloakTokenRefresh: mock.fn(async () => {
+        throw new Error("fetch failed");
+      })
+    });
+
+    const exp = Math.floor(Date.now() / 1000) - 60;
+    const id = await createSession(fakeTokens(exp));
+    const session = await loadSession(id);
+    assert.equal(session, null);
+
+    const redis = new Redis(process.env.REDIS_URL!);
+    const raw = await redis.get(`landscrape:session:${id}`);
+    assert.ok(raw);
+    await redis.quit();
+    await destroySession(id);
+  });
 });

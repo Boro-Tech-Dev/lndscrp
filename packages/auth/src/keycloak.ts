@@ -25,6 +25,19 @@ export function isDefinitiveTokenFailure(err: unknown): boolean {
   return err instanceof JOSEError && DEFINITIVE_TOKEN_FAILURE_CODES.has(err.code);
 }
 
+/** True when a Keycloak refresh failed because the refresh token is invalid, not infra blips. */
+export function isDefinitiveRefreshFailure(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  if (msg.includes("invalid_grant")) return true;
+  const statusMatch = msg.match(/keycloak token request failed \((\d{3})\)/);
+  if (statusMatch) {
+    const status = Number(statusMatch[1]);
+    if (status === 400 || status === 401) return true;
+  }
+  return false;
+}
+
 let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
 let jwksIssuer: string | null = null;
 
