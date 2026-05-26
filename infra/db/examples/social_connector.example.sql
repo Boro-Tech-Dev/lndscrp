@@ -1,0 +1,9 @@
+-- Example: social connector for X/Twitter ingest (not executed by default).
+-- 1. Set LANDSCRAPE_CREDENTIALS_KEY in .env
+-- 2. Create connector via API with secrets (authToken + ct0) — see scripts/configure-x-social-connector.sh
+-- 3. Create social sources with source_config.provider=x, connectorId, and mode (search|account|hashtag)
+--
+-- INSERT INTO connectors (tenant_id, connector_name, connector_type, connection_config)
+-- SELECT tenant_id, 'X Monitor', 'social', '{"provider": "x"}'::jsonb
+-- FROM tenants WHERE tenant_slug = 'ayvakit'
+-- ON CONFLICT (tenant_id, connector_name) DO NOTHING;

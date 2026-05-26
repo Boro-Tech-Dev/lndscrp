@@ -1,0 +1,129 @@
+{
+  "realm": "landscrape",
+  "displayName": "LandScrape",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 259200,
+  "accessTokenLifespanForImplicitFlow": 259200,
+  "ssoSessionIdleTimeout": 259200,
+  "ssoSessionMaxLifespan": 259200,
+  "offlineSessionIdleTimeout": 259200,
+  "offlineSessionMaxLifespan": 259200,
+  "roles": {
+    "realm": [
+      { "name": "viewer", "description": "Read-only workspace access" },
+      { "name": "analyst", "description": "Analyst workspace access" },
+      { "name": "manager", "description": "Manager workspace access" },
+      { "name": "admin", "description": "Administrative access" }
+    ]
+  },
+  "groups": [
+    { "name": "tenant:ayvakit", "path": "/tenant:ayvakit" }
+  ],
+  "clients": [
+    {
+      "clientId": "landscrape-web",
+      "name": "LandScrape Web BFF",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "landscrape-web-secret-change-in-prod",
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:3001/*",
+        "http://web:3000/*",
+        "http://admin:3001/*",
+        "https://deliver-impact.com/*",
+        "https://www.deliver-impact.com/*",
+        "https://admin.deliver-impact.com/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://web:3000",
+        "http://admin:3001",
+        "https://deliver-impact.com",
+        "https://www.deliver-impact.com",
+        "https://admin.deliver-impact.com"
+      ],
+      "attributes": {
+        "client.session.idle.timeout": "259200",
+        "client.session.max.lifespan": "259200"
+      },
+      "protocolMappers": [
+        {
+          "name": "tenants-groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "groups",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "demo@landscrape.local",
+      "email": "demo@landscrape.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Demo",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["viewer"],
+      "groups": ["/tenant:ayvakit"]
+    },
+    {
+      "username": "admin@landscrape.local",
+      "email": "admin@landscrape.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "LandScrape",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["admin"],
+      "groups": ["/tenant:ayvakit"]
+    }
+  ]
+}

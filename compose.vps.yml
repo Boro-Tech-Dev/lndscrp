@@ -1,0 +1,180 @@
+# VPS production overlay for deliver-impact.com (72.61.5.60).
+# Usage:
+#   export COMPOSE_PARALLEL_LIMIT=1
+#   COMPOSE_FILE=compose.yaml:compose.vps.yml:compose.traefik.yml docker compose up -d --build
+#
+# Optional X/social stack (Puppeteer): docker compose --profile social up -d
+#
+# Strips host port bindings; only Traefik reaches web. Run infra/vps/setup-swap.sh first (16 GB).
+
+x-worker-throttle: &worker-throttle
+  LANDSCRAPE_OLLAMA_MAX_CONCURRENT: "1"
+  LANDSCRAPE_OLLAMA_GLOBAL_MAX_CONCURRENT: "2"
+  LANDSCRAPE_EMBED_CONCURRENCY: "1"
+  LANDSCRAPE_ENRICH_USE_AGENT: "false"
+  LANDSCRAPE_ENRICH_IMPORTANCE_THRESHOLD: "88"
+  LANDSCRAPE_EMBED_BACKFILL_INTERVAL_MS: "900000"
+  LANDSCRAPE_EMBED_BACKFILL_BATCH_SIZE: "5"
+  LANDSCRAPE_EMBED_BACKFILL_MAX_QUEUE_DEPTH: "20"
+  LANDSCRAPE_PRODUCT_ENRICH_ENABLED: "false"
+  LANDSCRAPE_COMPETITOR_RENDER_MODE: "fetch"
+
+services:
+  postgres:
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  minio:
+    ports: !reset []
+
+  ollama:
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "2.0"
+
+  keycloak:
+    ports: !reset []
+
+  mcp-fda:
+    ports: !reset []
+
+  mcp-pubmed:
+    ports: !reset []
+
+  mcp-clinicaltrials:
+    ports: !reset []
+
+  agent:
+    ports: !reset []
+    environment:
+      LANDSCRAPE_OLLAMA_MAX_CONCURRENT: "1"
+      LANDSCRAPE_OLLAMA_GLOBAL_MAX_CONCURRENT: "2"
+      LANDSCRAPE_AGENT_TURN_CONCURRENCY: "1"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+
+  api:
+    ports: !reset []
+
+  worker-scheduler:
+    environment:
+      <<: *worker-throttle
+      LANDSCRAPE_SCHEDULER_INTERVAL_MS: "120000"
+      LANDSCRAPE_SCHEDULER_BURST_LIMIT: "3"
+      LANDSCRAPE_LOG_QUEUE_DEPTH: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+
+  worker-ingest:
+    environment:
+      <<: *worker-throttle
+      LANDSCRAPE_INGEST_CONCURRENCY: "1"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+
+  worker-embed:
+    environment:
+      <<: *worker-throttle
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+
+  worker-enrich:
+    environment:
+      <<: *worker-throttle
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+
+  worker-portal:
+    environment:
+      <<: *worker-throttle
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+
+  worker-export:
+    environment:
+      <<: *worker-throttle
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+
+  worker-inbound:
+    environment:
+      <<: *worker-throttle
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+
+  worker-reconcile:
+    environment:
+      <<: *worker-throttle
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+
+  worker-social:
+    profiles:
+      - social
+    environment:
+      <<: *worker-throttle
+
+  xactions-postgres:
+    profiles:
+      - social
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  xactions-redis:
+    profiles:
+      - social
+
+  xactions-api:
+    profiles:
+      - social
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+          cpus: "1.0"
+
+  xactions-worker:
+    profiles:
+      - social
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+          cpus: "1.0"
+
+  web:
+    ports: !reset []
+    expose:
+      - "3000"
+
+  admin:
+    ports: !reset []
+    expose:
+      - "3001"

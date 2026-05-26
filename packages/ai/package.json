@@ -1,0 +1,15 @@
+{
+  "name": "@landscrape/ai",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@landscrape/config": "0.1.0",
+    "ioredis": "^5.4.2",
+    "node-fetch": "^3.3.2"
+  }
+}

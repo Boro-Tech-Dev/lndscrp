@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Light pharma-soft palette: warm paper, sage green, muted brown */
+:root {
+  --color-canvas: 250 248 243;
+  --color-surface: 255 255 255;
+  --color-border: 220 214 204;
+  --color-muted: 110 103 96;
+  --color-accent-green: 90 138 110;
+  --color-accent-brown: 139 115 94;
+}
+
+@layer base {
+  html,
+  body {
+    @apply m-0 min-h-screen bg-canvas text-stone-800 antialiased;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
+}

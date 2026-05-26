@@ -1,0 +1,9 @@
+{
+  "name": "landscrape-xactions-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pinned XActions runtime for LandScrape Docker stack",
+  "dependencies": {
+    "xactions": "3.1.0"
+  }
+}

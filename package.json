@@ -1,0 +1,20 @@
+{
+  "name": "landscrape",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @landscrape/types && npm run build -w @landscrape/config && npm run build -w @landscrape/auth && npm run build -w @landscrape/session && npm run build -w @landscrape/db && npm run build -w @landscrape/crypto && npm run build -w @landscrape/jobs && npm run build -w @landscrape/mcp-client && npm run build -w @landscrape/mcp-sidecars && npm run build -w @landscrape/x-twitter && npm run build -w @landscrape/intelligence-tools && npm run build -w @landscrape/product-enrichment && npm run build -w @landscrape/ai && npm run build -w @landscrape/api && npm run build -w @landscrape/agent && npm run build -w @landscrape/worker && npm run build -w @landscrape/web && npm run build -w @landscrape/admin",
+    "dev:agent": "npm run dev -w @landscrape/agent",
+    "dev:api": "npm run dev -w @landscrape/api",
+    "dev:worker": "npm run dev -w @landscrape/worker",
+    "dev:web": "npm run dev -w @landscrape/web",
+    "dev:admin": "npm run dev -w @landscrape/admin",
+    "db:schema": "psql $DATABASE_URL -f infra/db/001_landscrape_schema.sql && psql $DATABASE_URL -f infra/db/002_worker_platform.sql && psql $DATABASE_URL -f infra/db/003_vector_index.sql && psql $DATABASE_URL -f infra/db/005_source_types_news_press.sql && psql $DATABASE_URL -f infra/db/007_ollama_usage.sql && psql $DATABASE_URL -f infra/db/008_agent_platform.sql && psql $DATABASE_URL -f infra/db/010_agent_turn_jobs.sql && psql $DATABASE_URL -f infra/db/011_ayvakit_workspace.sql && psql $DATABASE_URL -f infra/db/012_workspace_products.sql && psql $DATABASE_URL -f infra/db/013_workspace_congress_events.sql && psql $DATABASE_URL -f infra/db/014_x_social_workspace.sql",
+    "lint": "echo 'Lint step placeholder - add ESLint/Prettier in next pass'",
+    "test": "npm run test -w @landscrape/worker"
+  }
+}

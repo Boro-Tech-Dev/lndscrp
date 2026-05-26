@@ -1,0 +1,19 @@
+# Host installs — huge and break overlayfs when COPY’d into the daemon
+node_modules
+**/node_modules
+
+# Build outputs (rebuilt in image)
+**/.next
+**/dist
+
+.git
+.gitignore
+coverage
+tmp
+*.log
+.DS_Store
+
+# Secrets (compose mounts .env at runtime)
+.env
+.env.*
+!.env.example

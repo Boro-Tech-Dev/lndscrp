@@ -1,0 +1,13 @@
+-- Example: email connector for IMAP inbound (not executed by default).
+-- 1. Create a dedicated source row (e.g. source_type = 'email' or 'other') for inbound normalization.
+-- 2. Replace <TENANT_UUID> and <SOURCE_UUID> with real IDs from your database.
+-- 3. Set LANDSCRAPE_IMAP_* in .env and ensure LANDSCRAPE_CREDENTIALS_KEY if storing secrets via API.
+--
+-- INSERT INTO connectors (tenant_id, connector_name, connector_type, connection_config)
+-- VALUES (
+--   '<TENANT_UUID>'::uuid,
+--   'Primary inbox',
+--   'email',
+--   jsonb_build_object('defaultInboundSourceId', '<SOURCE_UUID>')
+-- )
+-- ON CONFLICT (tenant_id, connector_name) DO NOTHING;

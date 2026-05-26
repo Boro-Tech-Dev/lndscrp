@@ -1,0 +1,691 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-landscrape}
+      POSTGRES_USER: ${POSTGRES_USER:-landscrape}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-landscrape_secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/db/001_landscrape_schema.sql:/docker-entrypoint-initdb.d/001_landscrape_schema.sql:ro
+      - ./infra/db/002_worker_platform.sql:/docker-entrypoint-initdb.d/002_worker_platform.sql:ro
+      - ./infra/db/003_vector_index.sql:/docker-entrypoint-initdb.d/003_vector_index.sql:ro
+      - ./infra/db/005_source_types_news_press.sql:/docker-entrypoint-initdb.d/005_source_types_news_press.sql:ro
+      - ./infra/db/007_ollama_usage.sql:/docker-entrypoint-initdb.d/007_ollama_usage.sql:ro
+      - ./infra/db/008_agent_platform.sql:/docker-entrypoint-initdb.d/008_agent_platform.sql:ro
+      - ./infra/db/010_agent_turn_jobs.sql:/docker-entrypoint-initdb.d/010_agent_turn_jobs.sql:ro
+      - ./infra/db/011_ayvakit_workspace.sql:/docker-entrypoint-initdb.d/011_ayvakit_workspace.sql:ro
+      - ./infra/db/012_workspace_products.sql:/docker-entrypoint-initdb.d/012_workspace_products.sql:ro
+      - ./infra/db/013_workspace_congress_events.sql:/docker-entrypoint-initdb.d/013_workspace_congress_events.sql:ro
+      - ./infra/db/014_x_social_workspace.sql:/docker-entrypoint-initdb.d/014_x_social_workspace.sql:ro
+      - ./infra/db/015_social_intelligence_signal_type.sql:/docker-entrypoint-initdb.d/015_social_intelligence_signal_type.sql:ro
+      - ./infra/db/016_render_waituntil_domcontentloaded.sql:/docker-entrypoint-initdb.d/016_render_waituntil_domcontentloaded.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-landscrape} -d ${POSTGRES_DB:-landscrape}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+    networks:
+      - landscrape
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - landscrape
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-landscrape}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-landscrape_minio_password}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - landscrape
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - landscrape
+
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_started
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      OLLAMA_AGENT_MODEL: ${OLLAMA_AGENT_MODEL:-${OLLAMA_MODEL:-llama3.2:3b}}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        echo "[ollama-init] waiting for ollama to accept connections at $$OLLAMA_HOST"
+        until ollama list >/dev/null 2>&1; do
+          sleep 2
+        done
+        echo "[ollama-init] pulling model $$OLLAMA_MODEL"
+        ollama pull "$$OLLAMA_MODEL"
+        echo "[ollama-init] verifying model $$OLLAMA_MODEL is present"
+        ollama show "$$OLLAMA_MODEL" >/dev/null
+        echo "[ollama-init] model $$OLLAMA_MODEL ready"
+        echo "[ollama-init] pulling embedding model (nomic-embed-text)"
+        ollama pull nomic-embed-text || true
+        echo "[ollama-init] embedding model pull attempted"
+        if [ "$$OLLAMA_AGENT_MODEL" != "$$OLLAMA_MODEL" ]; then
+          echo "[ollama-init] pulling agent model $$OLLAMA_AGENT_MODEL"
+          ollama pull "$$OLLAMA_AGENT_MODEL" || true
+          echo "[ollama-init] agent model pull attempted"
+        else
+          echo "[ollama-init] agent model same as OLLAMA_MODEL ($$OLLAMA_MODEL); skipping duplicate pull"
+        fi
+    restart: "no"
+    networks:
+      - landscrape
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./infra/keycloak:/opt/keycloak/data/import:ro
+    ports:
+      - "8080:8080"
+    healthcheck:
+      # Health endpoints live on the management port (9000), not 8080 — see keycloak.org/observability/health
+      test:
+        [
+          "CMD-SHELL",
+          "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/127.0.0.1/9000"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 90s
+    networks:
+      - landscrape
+
+  mcp-fda:
+    build:
+      context: .
+      dockerfile: infra/docker/mcp-sidecars.Dockerfile
+    image: landscrape-mcp-sidecar:prod
+    environment:
+      MCP_SIDECAR_KIND: fda
+      MCP_SIDECAR_PORT: 4020
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:4020/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - landscrape
+
+  mcp-pubmed:
+    build:
+      context: .
+      dockerfile: infra/docker/mcp-sidecars.Dockerfile
+    image: landscrape-mcp-sidecar:prod
+    environment:
+      MCP_SIDECAR_KIND: pubmed
+      MCP_SIDECAR_PORT: 4021
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:4021/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - landscrape
+
+  mcp-clinicaltrials:
+    build:
+      context: .
+      dockerfile: infra/docker/mcp-sidecars.Dockerfile
+    image: landscrape-mcp-sidecar:prod
+    environment:
+      MCP_SIDECAR_KIND: clinicaltrials
+      MCP_SIDECAR_PORT: 4022
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:4022/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - landscrape
+
+  agent:
+    build:
+      context: .
+      dockerfile: infra/docker/agent.Dockerfile
+    image: landscrape-agent:prod
+    ports:
+      - "4010:4010"
+    env_file:
+      - .env
+    environment:
+      AGENT_PORT: 4010
+      AGENT_SERVICE_ROLE: user
+      MCP_FDA_URL: http://mcp-fda:4020
+      MCP_PUBMED_URL: http://mcp-pubmed:4021
+      MCP_CLINICALTRIALS_URL: http://mcp-clinicaltrials:4022
+      LANDSCRAPE_REFERENCE_TOOLS: mcp
+      LANDSCRAPE_AGENT_TURN_QUEUE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      ollama:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
+      mcp-fda:
+        condition: service_healthy
+      mcp-pubmed:
+        condition: service_healthy
+      mcp-clinicaltrials:
+        condition: service_healthy
+    networks:
+      - landscrape
+
+  agent-enrich:
+    profiles:
+      - enrich-agent
+    build:
+      context: .
+      dockerfile: infra/docker/agent.Dockerfile
+    image: landscrape-agent:prod
+    ports:
+      - "4011:4011"
+    env_file:
+      - .env
+    environment:
+      AGENT_PORT: 4011
+      AGENT_SERVICE_ROLE: enrich
+      MCP_FDA_URL: http://mcp-fda:4020
+      MCP_PUBMED_URL: http://mcp-pubmed:4021
+      MCP_CLINICALTRIALS_URL: http://mcp-clinicaltrials:4022
+      LANDSCRAPE_REFERENCE_TOOLS: mcp
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
+      mcp-fda:
+        condition: service_healthy
+      mcp-pubmed:
+        condition: service_healthy
+      mcp-clinicaltrials:
+        condition: service_healthy
+    networks:
+      - landscrape
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    image: landscrape-api:prod
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      ollama:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+      agent:
+        condition: service_started
+    networks:
+      - landscrape
+
+  worker-scheduler:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    image: landscrape-worker:prod
+    environment:
+      LANDSCRAPE_WORKER_ROLE: scheduler
+      LANDSCRAPE_SCHEDULER_BURST_LIMIT: "8"
+      LANDSCRAPE_LOG_QUEUE_DEPTH: "true"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - landscrape
+
+  worker-ingest:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    image: landscrape-worker:prod
+    environment:
+      LANDSCRAPE_WORKER_ROLE: ingest
+      LANDSCRAPE_OLLAMA_PIPELINE_TIMEOUT_MS: "120000"
+      LANDSCRAPE_OLLAMA_MAX_CONCURRENT: "1"
+      LANDSCRAPE_INGEST_CONCURRENCY: "1"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      ollama:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
+    networks:
+      - landscrape
+
+  xactions-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: xactions
+      POSTGRES_PASSWORD: ${XACTIONS_POSTGRES_PASSWORD:-xactions_dev_password}
+      POSTGRES_DB: xactions
+    volumes:
+      - xactions_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xactions -d xactions"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - landscrape
+
+  xactions-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - xactions_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - landscrape
+
+  xactions-api:
+    build:
+      context: ./infra/xactions
+      dockerfile: Dockerfile
+    image: landscrape-xactions:prod
+    shm_size: "1gb"
+    ports:
+      - "3002:3001"
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DATABASE_URL: postgresql://xactions:${XACTIONS_POSTGRES_PASSWORD:-xactions_dev_password}@xactions-postgres:5432/xactions?schema=public
+      REDIS_HOST: xactions-redis
+      REDIS_PORT: "6379"
+      JWT_SECRET: ${XACTIONS_JWT_SECRET:-xactions-jwt-secret-change-me-in-production}
+      SESSION_SECRET: ${XACTIONS_SESSION_SECRET:-xactions_session_secret_change_me}
+      X402_DISABLED: "true"
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+      PUPPETEER_HEADLESS: "true"
+      PUPPETEER_NO_SANDBOX: "true"
+    depends_on:
+      xactions-postgres:
+        condition: service_healthy
+      xactions-redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1:3001/api/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      start_period: 45s
+      retries: 3
+    networks:
+      - landscrape
+
+  xactions-worker:
+    build:
+      context: ./infra/xactions
+      dockerfile: Dockerfile
+    image: landscrape-xactions:prod
+    shm_size: "1gb"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://xactions:${XACTIONS_POSTGRES_PASSWORD:-xactions_dev_password}@xactions-postgres:5432/xactions?schema=public
+      REDIS_HOST: xactions-redis
+      REDIS_PORT: "6379"
+      JWT_SECRET: ${XACTIONS_JWT_SECRET:-xactions-jwt-secret-change-me-in-production}
+      SESSION_SECRET: ${XACTIONS_SESSION_SECRET:-xactions_session_secret_change_me}
+      X402_DISABLED: "true"
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+      PUPPETEER_HEADLESS: "true"
+      PUPPETEER_NO_SANDBOX: "true"
+    depends_on:
+      xactions-postgres:
+        condition: service_healthy
+      xactions-redis:
+        condition: service_healthy
+      xactions-api:
+        condition: service_healthy
+    command: ["node", "api/services/jobQueue.js"]
+    working_dir: /app/node_modules/xactions
+    networks:
+      - landscrape
+
+  worker-social:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    image: landscrape-worker:prod
+    environment:
+      LANDSCRAPE_WORKER_ROLE: social
+      LANDSCRAPE_SOCIAL_CONCURRENCY: "1"
+      LANDSCRAPE_X_BACKEND: api
+      XACTIONS_API_URL: http://xactions-api:3001
+      LANDSCRAPE_OLLAMA_PIPELINE_TIMEOUT_MS: "120000"
+      LANDSCRAPE_OLLAMA_MAX_CONCURRENT: "1"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      xactions-api:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
+    networks:
+      - landscrape
+
+  worker-portal:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    image: landscrape-worker:prod
+    shm_size: "1gb"
+    environment:
+      LANDSCRAPE_WORKER_ROLE: portal
+      LANDSCRAPE_OLLAMA_PIPELINE_TIMEOUT_MS: "120000"
+      LANDSCRAPE_OLLAMA_MAX_CONCURRENT: "1"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      ollama:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
+    networks:
+      - landscrape
+
+  worker-embed:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    image: landscrape-worker:prod
+    environment:
+      LANDSCRAPE_WORKER_ROLE: embed
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      ollama:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
+    networks:
+      - landscrape
+
+  worker-export:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    image: landscrape-worker:prod
+    shm_size: "1gb"
+    environment:
+      LANDSCRAPE_WORKER_ROLE: export
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    networks:
+      - landscrape
+
+  worker-enrich:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    image: landscrape-worker:prod
+    environment:
+      LANDSCRAPE_WORKER_ROLE: enrich
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - landscrape
+
+  worker-inbound:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    image: landscrape-worker:prod
+    environment:
+      LANDSCRAPE_WORKER_ROLE: inbound
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      ollama:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
+    networks:
+      - landscrape
+
+  worker-reconcile:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    image: landscrape-worker:prod
+    environment:
+      LANDSCRAPE_WORKER_ROLE: reconcile
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - landscrape
+
+  worker-full:
+    profiles:
+      - monolith
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    image: landscrape-worker:prod
+    shm_size: "1gb"
+    environment:
+      LANDSCRAPE_WORKER_ROLE: full
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      ollama:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_started
+    networks:
+      - landscrape
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+    image: landscrape-web:prod
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      api:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - landscrape
+
+  admin:
+    build:
+      context: .
+      dockerfile: infra/docker/admin.Dockerfile
+    image: landscrape-admin:prod
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    depends_on:
+      api:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - landscrape
+
+  # --- Local dev: browse Postgres / Redis / container logs (not used by the app at runtime) ---
+  pgweb:
+    profiles:
+      - dev
+    image: sosedoff/pgweb:latest
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-landscrape}:${POSTGRES_PASSWORD:-landscrape_secure_password}@postgres:5432/${POSTGRES_DB:-landscrape}?sslmode=disable
+    ports:
+      - "5050:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - landscrape
+
+  redis-commander:
+    profiles:
+      - dev
+    image: rediscommander/redis-commander:latest
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "5051:8081"
+    depends_on:
+      redis:
+        condition: service_started
+    networks:
+      - landscrape
+
+  dozzle:
+    profiles:
+      - dev
+    image: amir20/dozzle:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "5052:8080"
+    networks:
+      - landscrape
+
+  mcp-xactions:
+    profiles:
+      - agent-x
+    image: node:20-slim
+    command: ["npx", "-y", "xactions-mcp"]
+    environment:
+      XACTIONS_MODE: remote
+      XACTIONS_API_URL: http://xactions-api:3001
+    depends_on:
+      xactions-api:
+        condition: service_healthy
+    networks:
+      - landscrape
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  ollama_data:
+  xactions_postgres_data:
+  xactions_redis_data:
+
+networks:
+  landscrape:
+    driver: bridge

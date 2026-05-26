@@ -1,0 +1,41 @@
+# Traefik reverse-proxy labels (Hostinger /docker/traefik on VPS).
+# Requires Traefik on host network with docker provider; web + admin public.
+# Usage:
+#   COMPOSE_FILE=compose.yaml:compose.vps.yml:compose.traefik.yml docker compose up -d web admin
+
+services:
+  web:
+    ports: !reset []
+    expose:
+      - "3000"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.landscrape.rule=Host(`deliver-impact.com`) || Host(`www.deliver-impact.com`)
+      - traefik.http.routers.landscrape.entrypoints=websecure
+      - traefik.http.routers.landscrape.tls=true
+      - traefik.http.routers.landscrape.tls.certresolver=letsencrypt
+      - traefik.http.routers.landscrape.service=landscrape
+      - traefik.http.services.landscrape.loadbalancer.server.port=3000
+      - traefik.http.services.landscrape.loadbalancer.passhostheader=true
+      - traefik.http.routers.landscrape-hstgr.rule=Host(`srv1109378.hstgr.cloud`)
+      - traefik.http.routers.landscrape-hstgr.entrypoints=websecure
+      - traefik.http.routers.landscrape-hstgr.tls=true
+      - traefik.http.routers.landscrape-hstgr.tls.certresolver=letsencrypt
+      - traefik.http.routers.landscrape-hstgr.middlewares=landscrape-hstgr-redirect
+      - traefik.http.middlewares.landscrape-hstgr-redirect.redirectregex.regex=^https://srv1109378\.hstgr\.cloud/(.*)
+      - traefik.http.middlewares.landscrape-hstgr-redirect.redirectregex.replacement=https://deliver-impact.com/$${1}
+      - traefik.http.middlewares.landscrape-hstgr-redirect.redirectregex.permanent=true
+
+  admin:
+    ports: !reset []
+    expose:
+      - "3001"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.landscrape-admin.rule=Host(`admin.deliver-impact.com`)
+      - traefik.http.routers.landscrape-admin.entrypoints=websecure
+      - traefik.http.routers.landscrape-admin.tls=true
+      - traefik.http.routers.landscrape-admin.tls.certresolver=letsencrypt
+      - traefik.http.routers.landscrape-admin.service=landscrape-admin
+      - traefik.http.services.landscrape-admin.loadbalancer.server.port=3001
+      - traefik.http.services.landscrape-admin.loadbalancer.passhostheader=true

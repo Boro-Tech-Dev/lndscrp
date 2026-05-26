@@ -1,0 +1,22 @@
+{
+  "name": "@landscrape/intelligence-tools",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test dist/phiPolicy.test.js"
+  },
+  "dependencies": {
+    "@landscrape/config": "0.1.0",
+    "@landscrape/crypto": "0.1.0",
+    "@landscrape/db": "0.1.0",
+    "@landscrape/mcp-client": "0.1.0",
+    "@landscrape/x-twitter": "0.1.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

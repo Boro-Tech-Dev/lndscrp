@@ -1,0 +1,19 @@
+{
+  "name": "@landscrape/x-twitter",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test src/mapTweet.test.ts src/mapApiTweet.test.ts src/remoteClient.test.ts"
+  },
+  "dependencies": {
+    "@landscrape/config": "0.1.0",
+    "xactions": "3.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@landscrape/product-enrichment",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/enrichment.test.js"
+  },
+  "dependencies": {
+    "@landscrape/config": "0.1.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

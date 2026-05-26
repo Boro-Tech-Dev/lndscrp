@@ -1,0 +1,149 @@
+import { randomUUID } from "node:crypto";
+import Redis from "ioredis";
+import {
+  decodeJwtExp,
+  fetchKeycloakTokenRefresh,
+  isJwtExpired,
+  keycloakConfigFromEnv,
+  parseLandscrapeClaims,
+  type KeycloakTokenResponse
+} from "@landscrape/auth";
+import type { SessionData, StoredSession } from "./sessionTypes";
+import { defaultSessionMaxAgeSeconds } from "./sessionCookie";
+
+const KEY_PREFIX = "landscrape:session:";
+
+let redisClient: Redis | null = null;
+
+function redisUrl(): string {
+  return process.env.REDIS_URL?.trim() || "redis://redis:6379";
+}
+
+function getRedis(): Redis {
+  if (!redisClient) {
+    redisClient = new Redis(redisUrl(), { maxRetriesPerRequest: 2, lazyConnect: true });
+  }
+  return redisClient;
+}
+
+function sessionKey(id: string): string {
+  return `${KEY_PREFIX}${id}`;
+}
+
+function ttlSeconds(tokens: KeycloakTokenResponse): number {
+  const fromRefresh = tokens.refresh_expires_in;
+  if (typeof fromRefresh === "number" && fromRefresh > 0) return fromRefresh;
+  const fromEnv = defaultSessionMaxAgeSeconds();
+  return fromEnv;
+}
+
+function expiresAtFromAccessToken(accessToken: string): number {
+  const exp = decodeJwtExp(accessToken);
+  return exp ?? Math.floor(Date.now() / 1000) + 300;
+}
+
+function sessionFromTokens(tokens: KeycloakTokenResponse, emailFallback?: string): StoredSession {
+  const refreshToken = tokens.refresh_token?.trim();
+  if (!refreshToken) {
+    throw new Error("Keycloak did not return a refresh token");
+  }
+  const payload = JSON.parse(
+    Buffer.from(tokens.access_token.split(".")[1], "base64url").toString("utf8")
+  ) as Record<string, unknown>;
+  const claims = parseLandscrapeClaims(payload);
+  const email = claims.email || emailFallback || "";
+  return {
+    accessToken: tokens.access_token,
+    refreshToken,
+    email,
+    claims,
+    expiresAt: expiresAtFromAccessToken(tokens.access_token)
+  };
+}
+
+async function saveSession(id: string, data: StoredSession, ttl: number): Promise<void> {
+  const redis = getRedis();
+  await redis.set(sessionKey(id), JSON.stringify(data), "EX", ttl);
+}
+
+export async function createSession(
+  tokens: KeycloakTokenResponse,
+  emailFallback?: string
+): Promise<string> {
+  const data = sessionFromTokens(tokens, emailFallback);
+  const id = randomUUID();
+  const ttl = ttlSeconds(tokens);
+  await saveSession(id, data, ttl);
+  return id;
+}
+
+async function refreshStoredSession(id: string, data: StoredSession): Promise<SessionData | null> {
+  const config = keycloakConfigFromEnv();
+  if (!config) return null;
+
+  try {
+    const tokens = await fetchKeycloakTokenRefresh(config, data.refreshToken);
+    const updated = sessionFromTokens(tokens, data.email);
+    const ttl = ttlSeconds(tokens);
+    await saveSession(id, updated, ttl);
+    return updated;
+  } catch {
+    await destroySession(id);
+    return null;
+  }
+}
+
+/** Read session from Redis without refreshing tokens (e.g. logout). */
+export async function readSession(id: string): Promise<SessionData | null> {
+  const trimmed = id?.trim();
+  if (!trimmed) return null;
+
+  const redis = getRedis();
+  const raw = await redis.get(sessionKey(trimmed));
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as StoredSession;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadSession(id: string): Promise<SessionData | null> {
+  const trimmed = id?.trim();
+  if (!trimmed) return null;
+
+  const redis = getRedis();
+  const raw = await redis.get(sessionKey(trimmed));
+  if (!raw) return null;
+
+  let data: StoredSession;
+  try {
+    data = JSON.parse(raw) as StoredSession;
+  } catch {
+    await destroySession(trimmed);
+    return null;
+  }
+
+  const exp = decodeJwtExp(data.accessToken);
+  if (exp === null || isJwtExpired(exp)) {
+    return refreshStoredSession(trimmed, data);
+  }
+
+  return data;
+}
+
+export async function destroySession(id: string): Promise<void> {
+  const trimmed = id?.trim();
+  if (!trimmed) return;
+  const redis = getRedis();
+  await redis.del(sessionKey(trimmed));
+}
+
+/** For tests — close Redis connection. */
+export async function closeSessionStore(): Promise<void> {
+  if (redisClient) {
+    await redisClient.quit();
+    redisClient = null;
+  }
+}

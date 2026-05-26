@@ -1,0 +1,29 @@
+{
+  "name": "@landscrape/agent",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@landscrape/ai": "0.1.0",
+    "@landscrape/auth": "0.1.0",
+    "@landscrape/config": "0.1.0",
+    "@landscrape/db": "0.1.0",
+    "@landscrape/intelligence-tools": "0.1.0",
+    "@landscrape/jobs": "0.1.0",
+    "@landscrape/mcp-client": "0.1.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

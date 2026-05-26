@@ -1,0 +1,28 @@
+{
+  "name": "@landscrape/session",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./cookie": {
+      "types": "./dist/sessionCookie.d.ts",
+      "default": "./dist/sessionCookie.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/sessionStore.test.js"
+  },
+  "dependencies": {
+    "@landscrape/auth": "0.1.0",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "@landscrape/api",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "test": "node --import tsx --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@landscrape/ai": "0.1.0",
+    "@landscrape/auth": "0.1.0",
+    "@landscrape/config": "0.1.0",
+    "@landscrape/crypto": "0.1.0",
+    "@landscrape/db": "0.1.0",
+    "@landscrape/jobs": "0.1.0",
+    "@landscrape/types": "0.1.0",
+    "bullmq": "^5.75.2",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "imapflow": "^1.3.2",
+    "ioredis": "^5.10.1",
+    "pdf-parse": "^2.4.5",
+    "pg": "^8.12.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}
