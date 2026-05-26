@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sync LandScrape to the VPS (includes .env).
+# Sync LandScrape to the VPS (never overwrites server .env).
 # Usage: ./scripts/rsync-to-vps.sh [user@host]
 # Default destination: root@72.61.5.60:/opt/landscrape/
 set -euo pipefail
@@ -20,8 +20,9 @@ echo "Syncing to $DEST"
 rsync -avz --delete \
   --exclude node_modules \
   --exclude .git \
+  --exclude .env \
   --exclude apps/web/.next \
   --exclude apps/admin/.next \
   "$ROOT/" "$DEST"
 
-echo "Synced to $DEST (including .env)"
+echo "Synced to $DEST (.env on server unchanged)"

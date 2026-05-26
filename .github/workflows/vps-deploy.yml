@@ -50,9 +50,22 @@ jobs:
           rsync -avz -e "ssh -o StrictHostKeyChecking=yes" --delete \
             --exclude node_modules \
             --exclude .git \
+            --exclude .env \
             --exclude apps/web/.next \
             --exclude apps/admin/.next \
             ./ "${VPS_USER}@${VPS_HOST}:${VPS_REMOTE_DIR}/"
+
+      - name: Write production .env on VPS
+        env:
+          VPS_DOTENV: ${{ secrets.VPS_DOTENV }}
+        run: |
+          if [ -z "${VPS_DOTENV//[[:space:]]/}" ]; then
+            echo "::error::Repository secret VPS_DOTENV is required (full production .env contents)."
+            exit 1
+          fi
+          printf '%s\n' "$VPS_DOTENV" | ssh -o StrictHostKeyChecking=yes \
+            "${VPS_USER}@${VPS_HOST}" \
+            "umask 077 && cat > '${VPS_REMOTE_DIR}/.env' && chmod 600 '${VPS_REMOTE_DIR}/.env'"
 
       - name: Pull images and restart stack
         run: |

@@ -41,7 +41,7 @@ From your dev machine:
 
 Default destination is **`root@72.61.5.60:/opt/landscrape/`** (no arguments). Do not use documentation placeholders like `user@other-host`.
 
-Or manually (optional; CI uses committed `infra/vps/production.env` instead):
+Or manually (CI writes `.env` from GitHub secret **`VPS_DOTENV`**; rsync never touches server `.env`):
 
 ```bash
 rsync -avz --delete \
@@ -105,7 +105,7 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
 
 ## 4. Auto-deploy from GitHub Actions
 
-After images are published, [`.github/workflows/vps-deploy.yml`](../.github/workflows/vps-deploy.yml) rsyncs compose files to the VPS and runs [`infra/vps/remote-deploy.sh`](../infra/vps/remote-deploy.sh) (`pull` + `up -d`).
+After images are published, [`.github/workflows/vps-deploy.yml`](../.github/workflows/vps-deploy.yml) rsyncs compose files to the VPS, writes `/opt/landscrape/.env` from secret **`VPS_DOTENV`**, then runs [`infra/vps/remote-deploy.sh`](../infra/vps/remote-deploy.sh) (`pull` + `up -d`).
 
 | Trigger | When |
 |---------|------|
@@ -125,12 +125,16 @@ After images are published, [`.github/workflows/vps-deploy.yml`](../.github/work
 
    GitHub → Settings → Secrets and variables → Actions → `VPS_SSH_PRIVATE_KEY` → paste. Must start with `-----BEGIN OPENSSH PRIVATE KEY-----` (or `BEGIN PRIVATE KEY`), not `ssh-ed25519`.
 
+4. Add **`VPS_DOTENV`**: paste the full production `.env` (same format as `.env.vps.example`). CI writes this to the VPS on every deploy (`chmod 600`). Update the secret when you change production config; re-run **VPS deploy** or push to `main`.
+
 Optional repository **variables** (Settings → Variables): `VPS_HOST` (default `72.61.5.60`), `VPS_USER` (default `root`), `VPS_REMOTE_DIR` (default `/opt/landscrape`).
 
 ### Local equivalent
 
 ```bash
 ./scripts/deploy-vps.sh deploy   # sync + remote-deploy.sh on VPS
+# Optional: push a local gitignored env file before remote-deploy
+LANDSCRAPE_VPS_ENV_FILE=~/.landscrape-vps.env ./scripts/deploy-vps.sh deploy
 ```
 
 ## 5. Start (recommended: pull from GHCR)
@@ -165,7 +169,7 @@ Scoped updates:
 1. Swap: `bash infra/vps/setup-swap.sh`
 2. Configure `.env` from `.env.vps.example`
 3. GHCR packages **Public** (or `docker login ghcr.io`)
-4. CI secret `VPS_SSH_PRIVATE_KEY` if using auto-deploy
+4. CI secrets `VPS_SSH_PRIVATE_KEY` and `VPS_DOTENV` if using auto-deploy
 5. Staged `pull` + `up` (see `deploy-vps.sh fresh` or below)
 
 ```bash

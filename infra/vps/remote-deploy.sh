@@ -7,8 +7,11 @@ export COMPOSE_FILE="${COMPOSE_FILE:-compose.yaml:compose.vps.yml:compose.traefi
 
 cd "$REMOTE_DIR"
 
-cp infra/vps/production.env .env
-echo "[remote-deploy] applied infra/vps/production.env → .env"
+if [[ ! -f .env ]]; then
+  echo "[remote-deploy] error: .env missing at $REMOTE_DIR/.env" >&2
+  echo "[remote-deploy] CI: set GitHub secret VPS_DOTENV. Manual: cp .env.vps.example .env on the VPS." >&2
+  exit 1
+fi
 
 echo "[remote-deploy] COMPOSE_FILE=$COMPOSE_FILE"
 echo "[remote-deploy] pulling images from registry…"

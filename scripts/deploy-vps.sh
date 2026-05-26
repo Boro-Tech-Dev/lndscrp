@@ -26,6 +26,15 @@ case "$cmd" in
     ;;
   deploy)
     "$ROOT/scripts/rsync-to-vps.sh"
+    if [[ -n "${LANDSCRAPE_VPS_ENV_FILE:-}" ]]; then
+      if [[ ! -f "$LANDSCRAPE_VPS_ENV_FILE" ]]; then
+        echo "error: LANDSCRAPE_VPS_ENV_FILE=$LANDSCRAPE_VPS_ENV_FILE not found" >&2
+        exit 1
+      fi
+      scp -q "$LANDSCRAPE_VPS_ENV_FILE" "$HOST:${REMOTE_DIR}/.env"
+      ssh "$HOST" "chmod 600 ${REMOTE_DIR}/.env"
+      echo "Uploaded .env from $LANDSCRAPE_VPS_ENV_FILE"
+    fi
     ssh "$HOST" "bash ${REMOTE_DIR}/infra/vps/remote-deploy.sh"
     ;;
   up-app)
