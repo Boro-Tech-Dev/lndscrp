@@ -80,4 +80,12 @@ docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh set-password \
   --username "${KEYCLOAK_ADMIN:-admin}" \
   --new-password "$NEW_KEYCLOAK_ADMIN_PASSWORD"
 
+echo "[rotate] flushing Redis sessions (Keycloak rotation invalidates all tokens)…"
+if docker compose ps --status running redis 2>/dev/null | grep -q redis; then
+  docker compose exec -T redis redis-cli EVAL \
+    "local keys = redis.call('keys', 'landscrape:session:*'); if #keys == 0 then return 0 else return redis.call('del', unpack(keys)) end" 0 \
+    || docker compose exec -T redis redis-cli --scan --pattern 'landscrape:session:*' \
+      | xargs -r docker compose exec -T redis redis-cli DEL
+fi
+
 echo "[rotate] done (databases + Keycloak). Install new .env then: docker compose up -d"

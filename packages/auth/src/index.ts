@@ -7,6 +7,7 @@ export {
   fetchKeycloakTokenRefresh,
   revokeKeycloakRefreshToken,
   verifyAccessToken,
+  isDefinitiveTokenFailure,
   keycloakConfigFromEnv
 } from "./keycloak";
 export { isPublicHostname, requestPublicOrigin } from "./requestPublicOrigin";

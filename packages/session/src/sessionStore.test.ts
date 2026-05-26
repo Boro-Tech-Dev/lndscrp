@@ -10,9 +10,11 @@ function fakeAccessToken(expSeconds: number): string {
 describe("sessionStore", () => {
   before(() => {
     process.env.REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
+    process.env.SESSION_SKIP_JWT_VERIFY = "true";
   });
 
   after(async () => {
+    delete process.env.SESSION_SKIP_JWT_VERIFY;
     await closeSessionStore();
   });
 

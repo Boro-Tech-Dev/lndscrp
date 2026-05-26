@@ -1,5 +1,29 @@
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
+import { createRemoteJWKSet, jwtVerify, errors as joseErrors, type JWTPayload } from "jose";
 import type { KeycloakAuthConfig, KeycloakTokenResponse } from "./types";
+
+const {
+  JOSEError,
+  JWKSNoMatchingKey,
+  JWSSignatureVerificationFailed,
+  JWTClaimValidationFailed,
+  JWTExpired,
+  JWTInvalid,
+  JWSInvalid
+} = joseErrors;
+
+const DEFINITIVE_TOKEN_FAILURE_CODES = new Set([
+  JWKSNoMatchingKey.code,
+  JWSSignatureVerificationFailed.code,
+  JWTClaimValidationFailed.code,
+  JWTExpired.code,
+  JWTInvalid.code,
+  JWSInvalid.code
+]);
+
+/** True when JWT verification failed due to an invalid/revoked token, not infra blips. */
+export function isDefinitiveTokenFailure(err: unknown): boolean {
+  return err instanceof JOSEError && DEFINITIVE_TOKEN_FAILURE_CODES.has(err.code);
+}
 
 let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
 let jwksIssuer: string | null = null;

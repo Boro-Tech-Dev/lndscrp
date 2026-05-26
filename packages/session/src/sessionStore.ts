@@ -3,15 +3,41 @@ import Redis from "ioredis";
 import {
   decodeJwtExp,
   fetchKeycloakTokenRefresh,
+  isDefinitiveTokenFailure,
   isJwtExpired,
   keycloakConfigFromEnv,
   parseLandscrapeClaims,
+  verifyAccessToken,
   type KeycloakTokenResponse
 } from "@landscrape/auth";
 import type { SessionData, StoredSession } from "./sessionTypes";
-import { defaultSessionMaxAgeSeconds } from "./sessionCookie";
+import { defaultSessionMaxAgeSeconds, deleteSessionCookieFromStore, SESSION_COOKIE, type RequestCookies } from "./sessionCookie";
 
 const KEY_PREFIX = "landscrape:session:";
+
+type SessionAuthDeps = {
+  verifyAccessToken: typeof verifyAccessToken;
+  isDefinitiveTokenFailure: typeof isDefinitiveTokenFailure;
+  fetchKeycloakTokenRefresh: typeof fetchKeycloakTokenRefresh;
+};
+
+const defaultSessionAuthDeps = (): SessionAuthDeps => ({
+  verifyAccessToken,
+  isDefinitiveTokenFailure,
+  fetchKeycloakTokenRefresh
+});
+
+let sessionAuthDeps: SessionAuthDeps = defaultSessionAuthDeps();
+
+/** @internal Test-only override for session auth dependencies. */
+export function __setSessionAuthDepsForTests(overrides: Partial<SessionAuthDeps>): void {
+  sessionAuthDeps = { ...defaultSessionAuthDeps(), ...overrides };
+}
+
+/** @internal Restore default session auth dependencies after tests. */
+export function __resetSessionAuthDepsForTests(): void {
+  sessionAuthDeps = defaultSessionAuthDeps();
+}
 
 let redisClient: Redis | null = null;
 
@@ -28,6 +54,10 @@ function getRedis(): Redis {
 
 function sessionKey(id: string): string {
   return `${KEY_PREFIX}${id}`;
+}
+
+function shouldSkipJwtVerify(): boolean {
+  return process.env.SESSION_SKIP_JWT_VERIFY === "true";
 }
 
 function ttlSeconds(tokens: KeycloakTokenResponse): number {
@@ -82,7 +112,7 @@ async function refreshStoredSession(id: string, data: StoredSession): Promise<Se
   if (!config) return null;
 
   try {
-    const tokens = await fetchKeycloakTokenRefresh(config, data.refreshToken);
+    const tokens = await sessionAuthDeps.fetchKeycloakTokenRefresh(config, data.refreshToken);
     const updated = sessionFromTokens(tokens, data.email);
     const ttl = ttlSeconds(tokens);
     await saveSession(id, updated, ttl);
@@ -90,6 +120,19 @@ async function refreshStoredSession(id: string, data: StoredSession): Promise<Se
   } catch {
     await destroySession(id);
     return null;
+  }
+}
+
+async function verifyStoredAccessToken(accessToken: string): Promise<"valid" | "invalid" | "unknown"> {
+  const config = keycloakConfigFromEnv();
+  if (!config) return "unknown";
+
+  try {
+    await sessionAuthDeps.verifyAccessToken(accessToken, config);
+    return "valid";
+  } catch (err) {
+    if (sessionAuthDeps.isDefinitiveTokenFailure(err)) return "invalid";
+    return "unknown";
   }
 }
 
@@ -130,7 +173,27 @@ export async function loadSession(id: string): Promise<SessionData | null> {
     return refreshStoredSession(trimmed, data);
   }
 
+  if (!shouldSkipJwtVerify()) {
+    const verified = await verifyStoredAccessToken(data.accessToken);
+    if (verified === "valid") {
+      return data;
+    }
+    if (verified === "invalid") {
+      return refreshStoredSession(trimmed, data);
+    }
+  }
+
   return data;
+}
+
+/** Clear browser cookie when it references a missing or invalid Redis session. */
+export async function clearOrphanSessionCookie(cookieStore: RequestCookies): Promise<void> {
+  const id = cookieStore.get(SESSION_COOKIE)?.value?.trim();
+  if (!id) return;
+  const session = await loadSession(id);
+  if (!session) {
+    deleteSessionCookieFromStore(cookieStore);
+  }
 }
 
 export async function destroySession(id: string): Promise<void> {

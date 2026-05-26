@@ -63,6 +63,18 @@ export function clearSessionCookie(cookies: ResponseCookies): void {
   cookies.delete({ name: SESSION_COOKIE, path: "/" });
 }
 
+export type RequestCookies = {
+  get(name: string): { value?: string } | undefined;
+  delete(options: { name: string; path: string; domain?: string }): void;
+};
+
+/** Remove session cookie from a Next.js request cookie store (Server Components). */
+export function deleteSessionCookieFromStore(cookies: RequestCookies): void {
+  const opts = sessionCookieDeleteOptions();
+  cookies.delete({ name: SESSION_COOKIE, ...opts });
+  cookies.delete({ name: SESSION_COOKIE, path: "/" });
+}
+
 export function clearLegacyAuthCookies(cookies: ResponseCookies): void {
   const opts = sessionCookieDeleteOptions();
   for (const name of LEGACY_AUTH_COOKIES) {

@@ -1,9 +1,13 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
+import { clearOrphanSessionCookie } from "@landscrape/session";
 import { LoginForm } from "./LoginForm";
 
 export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  await clearOrphanSessionCookie(await cookies());
+
   return (
     <main className="min-h-screen bg-canvas text-stone-800">
       <div className="mx-auto flex min-h-screen max-w-md items-center p-4">

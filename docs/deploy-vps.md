@@ -226,6 +226,10 @@ docker stats --no-stream
 - Admin users: open **Admin** in the top bar, or go to https://admin.deliver-impact.com (shared session when `AUTH_COOKIE_DOMAIN=.deliver-impact.com`)
 - From outside: ports **5432, 4000, 8080** on the public IP should be **closed**
 
+### Secret rotation (`rotate-vps-secrets.sh`)
+
+Running [`scripts/rotate-vps-secrets.sh`](../scripts/rotate-vps-secrets.sh) updates Postgres, MinIO, and Keycloak credentials on the VPS. [`infra/vps/apply-rotated-secrets.sh`](../infra/vps/apply-rotated-secrets.sh) **flushes all Redis sessions** (`landscrape:session:*`) after Keycloak client secret rotation because existing tokens and refresh tokens are invalid. All users must sign in again (also noted in the rotate script output). Encrypted connector secrets must be re-configured when `LANDSCRAPE_CREDENTIALS_KEY` changes.
+
 ### Redeploy web + admin only (auth / URL fixes)
 
 ```bash
@@ -276,6 +280,7 @@ docker images | grep landscrape
 | OOM during build | Use GHCR pull path instead of `--build` on VPS; if building locally, confirm swap and `COMPOSE_PARALLEL_LIMIT=1` |
 | TLS / 404 on domain | Check DNS; Traefik logs: `docker logs traefik-traefik-1` |
 | Login fails | Keycloak client secret vs `.env`; realm redirect URIs |
+| Logged out on refresh after Keycloak restart | Stale Redis sessions; run secret rotation (auto-flush) or `redis-cli --scan --pattern 'landscrape:session:*' \| xargs redis-cli DEL`; users re-login once |
 | `intelligence-tools` / `x-twitter` build error | Ensure Dockerfiles build `@landscrape/x-twitter` before `@landscrape/intelligence-tools` |
 | Playwright `page.goto` timeouts on competitor sites | Migration `016_render_waituntil_domcontentloaded.sql` runs on fresh DBs; existing DBs: same `UPDATE` as in that file |
 | High sustained CPU after deploy | See `.env.vps.example` throttles; `compose.vps.yml` disables `agent-enrich` and optional `--profile social`; `docker stats --no-stream` |
