@@ -41,7 +41,7 @@ From your dev machine:
 
 Default destination is **`root@72.61.5.60:/opt/landscrape/`** (no arguments). Do not use documentation placeholders like `user@other-host`.
 
-Or manually (do **not** sync `.env` — it overwrites production secrets and cookie domain):
+Or manually (optional; CI uses committed `infra/vps/production.env` instead):
 
 ```bash
 rsync -avz --delete \

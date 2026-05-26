@@ -50,7 +50,6 @@ jobs:
           rsync -avz -e "ssh -o StrictHostKeyChecking=yes" --delete \
             --exclude node_modules \
             --exclude .git \
-            --exclude .env \
             --exclude apps/web/.next \
             --exclude apps/admin/.next \
             ./ "${VPS_USER}@${VPS_HOST}:${VPS_REMOTE_DIR}/"
