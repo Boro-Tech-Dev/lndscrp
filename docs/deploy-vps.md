@@ -95,13 +95,38 @@ LANDSCRAPE_IMAGE_OWNER=your-github-user
 LANDSCRAPE_IMAGE_TAG=prod
 ```
 
-One-time on the VPS (read-only PAT with `read:packages`):
+**GHCR visibility (public repo):** Set each package (`landscrape-web`, `landscrape-api`, etc.) to **Public** under GitHub → Packages → Package settings. Then the VPS can `docker pull` without `docker login`.
+
+If packages stay private, one-time on the VPS (PAT with `read:packages`):
 
 ```bash
 echo "$GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
 ```
 
-## 4. Start (recommended: pull from GHCR)
+## 4. Auto-deploy from GitHub Actions
+
+After images are published, [`.github/workflows/vps-deploy.yml`](../.github/workflows/vps-deploy.yml) rsyncs compose files to the VPS and runs [`infra/vps/remote-deploy.sh`](../infra/vps/remote-deploy.sh) (`pull` + `up -d`).
+
+| Trigger | When |
+|---------|------|
+| Push to `main` | Runs automatically after **Docker publish** succeeds (~6–7 min total) |
+| Manual | Actions → **VPS deploy** → **Run workflow** |
+
+### One-time CI setup
+
+1. Generate an SSH keypair for deploy only (`ssh-keygen -t ed25519 -f landscrape-vps-deploy -N ""`).
+2. Append `landscrape-vps-deploy.pub` to `root@72.61.5.60:~/.ssh/authorized_keys`.
+3. Add the **private** key as repository secret **`VPS_SSH_PRIVATE_KEY`** (Settings → Secrets and variables → Actions).
+
+Optional repository **variables** (Settings → Variables): `VPS_HOST` (default `72.61.5.60`), `VPS_USER` (default `root`), `VPS_REMOTE_DIR` (default `/opt/landscrape`).
+
+### Local equivalent
+
+```bash
+./scripts/deploy-vps.sh deploy   # sync + remote-deploy.sh on VPS
+```
+
+## 5. Start (recommended: pull from GHCR)
 
 Images are built in GitHub Actions ([`.github/workflows/docker-publish.yml`](../.github/workflows/docker-publish.yml)) on push to `main`. The VPS **pulls** them — no monorepo compile on the server.
 
@@ -119,7 +144,7 @@ From your Mac:
 
 Or `./scripts/deploy-vps.sh fresh` for the full staged command list.
 
-Typical routine deploy after CI finishes: **`sync` → `pull` → `up`** (minutes, not 30–60).
+With auto-deploy enabled, pushes to `main` update the VPS without manual steps. Otherwise: **`sync` → `pull` → `up`** or **`./scripts/deploy-vps.sh deploy`**.
 
 Scoped updates:
 
@@ -132,8 +157,9 @@ Scoped updates:
 
 1. Swap: `bash infra/vps/setup-swap.sh`
 2. Configure `.env` from `.env.vps.example`
-3. `docker login ghcr.io`
-4. Staged `pull` + `up` (see `deploy-vps.sh fresh` or below)
+3. GHCR packages **Public** (or `docker login ghcr.io`)
+4. CI secret `VPS_SSH_PRIVATE_KEY` if using auto-deploy
+5. Staged `pull` + `up` (see `deploy-vps.sh fresh` or below)
 
 ```bash
 cd /opt/landscrape
@@ -173,7 +199,7 @@ Expect **20–45 minutes** on 8 GB RAM. Rebuild a single image when possible (e.
 | `landscrape-agent` | `agent` | `agent-enrich` (optional profile) |
 | `landscrape-api`, `landscrape-web`, `landscrape-admin` | same-named services | — |
 
-## 5. Verify
+## 6. Verify
 
 ```bash
 curl -sI https://deliver-impact.com
@@ -232,7 +258,9 @@ docker images | grep landscrape
 | Issue | Action |
 |-------|--------|
 | `DNS_PROBE_FINISHED_NXDOMAIN` / URL like `e6f7f621c25c:3000` | Wrong URL — use https://deliver-impact.com. Next.js may log `Local: http://<container-id>:3000`; ignore it. Set `WEB_PUBLIC_URL` / `ADMIN_BASE_URL` in `.env` and `./scripts/deploy-vps.sh up-web`. |
-| `pull` / `manifest unknown` | Run GitHub Actions `docker-publish` on `main`; set `LANDSCRAPE_IMAGE_OWNER` lowercase; `docker login ghcr.io` |
+| `pull` / `manifest unknown` | Run **Docker publish** on `main`; set `LANDSCRAPE_IMAGE_OWNER` lowercase; make GHCR packages **Public** or `docker login ghcr.io` |
+| VPS deploy workflow fails SSH | Set secret `VPS_SSH_PRIVATE_KEY`; verify deploy public key in `authorized_keys` |
+| Auto-deploy did not run | Check **Docker publish** succeeded on `main`; open **VPS deploy** workflow run |
 | OOM during build | Use GHCR pull path instead of `--build` on VPS; if building locally, confirm swap and `COMPOSE_PARALLEL_LIMIT=1` |
 | TLS / 404 on domain | Check DNS; Traefik logs: `docker logs traefik-traefik-1` |
 | Login fails | Keycloak client secret vs `.env`; realm redirect URIs |

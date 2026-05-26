@@ -1,0 +1,72 @@
+name: VPS deploy
+
+on:
+  workflow_run:
+    workflows: [Docker publish]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: vps-deploy
+  cancel-in-progress: false
+
+env:
+  VPS_HOST: ${{ vars.VPS_HOST }}
+  VPS_USER: ${{ vars.VPS_USER }}
+  VPS_REMOTE_DIR: ${{ vars.VPS_REMOTE_DIR }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          if [[ -z "${VPS_SSH_PRIVATE_KEY}" ]]; then
+            echo "error: VPS_SSH_PRIVATE_KEY repository secret is required" >&2
+            exit 1
+          fi
+          VPS_HOST="${VPS_HOST:-72.61.5.60}"
+          VPS_USER="${VPS_USER:-root}"
+          echo "VPS_HOST=$VPS_HOST" >> "$GITHUB_ENV"
+          echo "VPS_USER=$VPS_USER" >> "$GITHUB_ENV"
+          echo "VPS_REMOTE_DIR=${VPS_REMOTE_DIR:-/opt/landscrape}" >> "$GITHUB_ENV"
+          install -m 700 -d ~/.ssh
+          echo "$VPS_SSH_PRIVATE_KEY" > ~/.ssh/vps_deploy
+          chmod 600 ~/.ssh/vps_deploy
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Rsync repository to VPS
+        run: |
+          RSYNC_RSH="ssh -i ~/.ssh/vps_deploy -o StrictHostKeyChecking=yes"
+          export RSYNC_RSH
+          rsync -avz --delete \
+            --exclude node_modules \
+            --exclude .git \
+            --exclude .env \
+            --exclude apps/web/.next \
+            --exclude apps/admin/.next \
+            ./ "${VPS_USER}@${VPS_HOST}:${VPS_REMOTE_DIR}/"
+
+      - name: Pull images and restart stack
+        run: |
+          ssh -i ~/.ssh/vps_deploy -o StrictHostKeyChecking=yes \
+            "${VPS_USER}@${VPS_HOST}" \
+            "bash ${VPS_REMOTE_DIR}/infra/vps/remote-deploy.sh"
+
+      - name: Smoke check (optional)
+        continue-on-error: true
+        run: |
+          curl -sfI --max-time 30 https://deliver-impact.com | head -5

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # VPS deploy helpers (pull from GHCR — no compile on server by default).
-# Usage: ./scripts/deploy-vps.sh <sync|pull|up|up-app|up-web|fresh>
+# Usage: ./scripts/deploy-vps.sh <sync|pull|up|deploy|up-app|up-web|fresh>
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -23,6 +23,10 @@ case "$cmd" in
     ;;
   up)
     ssh_compose up -d
+    ;;
+  deploy)
+    "$ROOT/scripts/rsync-to-vps.sh"
+    ssh "$HOST" "bash ${REMOTE_DIR}/infra/vps/remote-deploy.sh"
     ;;
   up-app)
     ssh_compose pull web admin api agent mcp-fda mcp-pubmed mcp-clinicaltrials
@@ -50,7 +54,7 @@ See docs/deploy-vps.md for details.
 EOF
     ;;
   *)
-    echo "Usage: $0 <sync|pull|up|up-app|up-web|fresh>" >&2
+    echo "Usage: $0 <sync|pull|up|deploy|up-app|up-web|fresh>" >&2
     echo "  COMPOSE_FILE=$COMPOSE_FILE" >&2
     echo "  HOST=$HOST  REMOTE_DIR=$REMOTE_DIR" >&2
     exit 1
