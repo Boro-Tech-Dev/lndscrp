@@ -35,7 +35,7 @@ jobs:
             dockerfile: infra/docker/mcp-sidecars.Dockerfile
             context: .
           - image: landscrape-xactions
-            dockerfile: Dockerfile
+            dockerfile: infra/xactions/Dockerfile
             context: infra/xactions
 
     steps:
