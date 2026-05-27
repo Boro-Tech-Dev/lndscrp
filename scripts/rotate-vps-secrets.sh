@@ -28,6 +28,9 @@ ssh "${SSH_OPTS[@]}" "$HOST" "chmod 600 '${REMOTE_DIR}/.env.new'"
 echo "Applying rotation on server (Postgres, Keycloak, MinIO)…"
 ssh "${SSH_OPTS[@]}" "$HOST" "bash '${REMOTE_DIR}/infra/vps/apply-rotated-secrets.sh' '${REMOTE_DIR}/.env.old' '${REMOTE_DIR}/.env.new'"
 
+echo "Validating new .env (GHCR image vars)"
+ssh "${SSH_OPTS[@]}" "$HOST" "set -a && source '${REMOTE_DIR}/.env.new' && set +a && bash '${REMOTE_DIR}/infra/vps/validate-deploy-env.sh'"
+
 echo "Activating .env and restarting stack"
 ssh "${SSH_OPTS[@]}" "$HOST" "mv '${REMOTE_DIR}/.env.new' '${REMOTE_DIR}/.env' && bash '${REMOTE_DIR}/infra/vps/remote-deploy.sh'"
 

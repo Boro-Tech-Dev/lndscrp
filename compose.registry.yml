@@ -63,3 +63,10 @@ services:
   web:
     image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-web:${LANDSCRAPE_IMAGE_TAG}
     build: !reset null
+
+  xactions-api:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-xactions:${LANDSCRAPE_IMAGE_TAG}
+    build: !reset null
+
+  xactions-worker:
+    image: ${LANDSCRAPE_IMAGE_REGISTRY}/${LANDSCRAPE_IMAGE_OWNER}/landscrape-xactions:${LANDSCRAPE_IMAGE_TAG}

@@ -19,12 +19,14 @@ set -a
 source .env
 set +a
 
+bash "$REMOTE_DIR/infra/vps/validate-deploy-env.sh"
+
 echo "[remote-deploy] COMPOSE_FILE=$COMPOSE_FILE"
 echo "[remote-deploy] pulling images from registry…"
-docker compose pull
+docker compose --profile social pull
 
 echo "[remote-deploy] starting/updating services…"
-docker compose up -d
+docker compose --profile social up -d
 
 if [[ "${LANDSCRAPE_PRUNE_IMAGES:-false}" == "true" ]]; then
   docker image prune -f

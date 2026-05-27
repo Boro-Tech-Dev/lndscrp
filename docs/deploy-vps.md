@@ -95,7 +95,7 @@ LANDSCRAPE_IMAGE_OWNER=your-github-user
 LANDSCRAPE_IMAGE_TAG=prod
 ```
 
-**GHCR visibility (public repo):** Set each package (`landscrape-web`, `landscrape-api`, etc.) to **Public** under GitHub → Packages → Package settings. Then the VPS can `docker pull` without `docker login`.
+**GHCR visibility (public repo):** Set each package (`landscrape-web`, `landscrape-api`, `landscrape-worker`, `landscrape-xactions`, etc.) to **Public** under GitHub → Packages → Package settings. Then the VPS can `docker pull` without `docker login`.
 
 If packages stay private, one-time on the VPS (PAT with `read:packages`):
 
@@ -185,7 +185,13 @@ docker compose up -d worker-scheduler worker-ingest worker-embed worker-enrich w
 
 First boot still downloads Ollama models (~2 GB) via `ollama-init`. Avoid `compose down -v` unless you intend to wipe databases and model cache.
 
-Optional **X/social** stack (Puppeteer): build `xactions-api` locally or add a CI job; then `docker compose --profile social up -d`.
+Optional **X/social** stack: image `landscrape-xactions` is published by **Docker publish** on `main`. After pull:
+
+```bash
+./scripts/deploy-vps.sh up-social
+```
+
+Or on the VPS: `docker compose --profile social up -d`.
 
 ### Slow path: build on the VPS (emergency / no CI)
 
@@ -275,7 +281,8 @@ docker images | grep landscrape
 | `intelligence-tools` / `x-twitter` build error | Ensure Dockerfiles build `@landscrape/x-twitter` before `@landscrape/intelligence-tools` |
 | Playwright `page.goto` timeouts on competitor sites | Migration `016_render_waituntil_domcontentloaded.sql` runs on fresh DBs; existing DBs: same `UPDATE` as in that file |
 | High sustained CPU after deploy | See `.env.vps.example` throttles; `compose.vps.yml` disables `agent-enrich` and optional `--profile social`; `docker stats --no-stream` |
-| Stuck ingest / `source_checks` stuck in `running` | `worker-reconcile` clears checks older than 30 minutes; or run the SQL in the signal-pipeline recovery runbook |
+| Stuck ingest / `source_checks` stuck in `running` | `worker-reconcile` clears checks older than 30 minutes; or [`docs/signal-pipeline-recovery.md`](signal-pipeline-recovery.md) / `bash infra/vps/recover-ingest.sh` |
+| No signals after deploy / Ollama OOM | Run `bash infra/vps/setup-swap.sh`; see [`signal-pipeline-recovery.md`](signal-pipeline-recovery.md) |
 
 ## Compose files
 
